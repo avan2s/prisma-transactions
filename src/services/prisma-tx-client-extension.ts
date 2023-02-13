@@ -40,7 +40,7 @@ export type FlatTransactionClient = Prisma.TransactionClient & {
                 if (e === ROLLBACK) return;
                 throw e;
               });
-            });
+            },{timeout: 300000});
     
             // return a proxy TransactionClient with `$commit` and `$rollback` methods
             return new Proxy(await txClient, {
