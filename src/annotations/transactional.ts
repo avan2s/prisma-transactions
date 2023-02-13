@@ -1,4 +1,4 @@
-import { TransactionOptions } from "../interfaces/transaction-options";
+import { Propagation, TransactionOptions } from "../interfaces/transaction-options";
 import transactionManager from "../services/transaction-manager.service";
 
 import { v4 as uuidv4 } from "uuid";
@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from "uuid";
  * @param options 
  * @returns 
  */
-export const Transactional = (options: TransactionOptions) => {
+export const Transactional = (options: TransactionOptions|Propagation) => {
     return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
         const originalMethod = descriptor.value;
         if (!(originalMethod instanceof Function)) {
@@ -19,35 +19,36 @@ export const Transactional = (options: TransactionOptions) => {
             const result = originalMethod.apply(this, args);
             const existingTransaction = false;
             const isRunningInsideTransaction = !!existingTransaction;
-            if (options.propagationType === 'REQUIRED') {
-                if (isRunningInsideTransaction) {
-                    const t = transactionManager.createTransaction();
-                    console.log('append to existing transaction');
-                } else {
-                    console.log('create new transaction');
-                }
-            } else if (options.propagationType === 'SUPPORTS') {
-                if (isRunningInsideTransaction) {
-                    console.log('use existing transaction')
-                }
-                console.log('use db client without any transactional behaviour')
-            } else if (options.propagationType === "NEVER") {
-                if (isRunningInsideTransaction) {
-                    throw new Error('transactions are not supported for this method');
-                }
-                console.log('use db client without any transactional behaviour');
-            } else if (options.propagationType === 'REQUIRES_NEW') {
-                if (isRunningInsideTransaction) {
-                    console.log('suspend the current transaction and create a new transaction');
-                } else {
-                    console.log('create a new independent transaction')
-                }
-            } else if (options.propagationType === 'MANDATORY') {
-                if (!isRunningInsideTransaction) {
-                    throw new Error('a pre existing transaction is required');
-                }
-                console.log('use existing transaction');
-            }
+            const propagationType = typeof 'string'? options : options;
+            // if (propagationType === 'REQUIRED') {
+            //     if (isRunningInsideTransaction) {
+            //         const t = transactionManager.createTransaction();
+            //         console.log('append to existing transaction');
+            //     } else {
+            //         console.log('create new transaction');
+            //     }
+            // } else if (propagationType === 'SUPPORTS') {
+            //     if (isRunningInsideTransaction) {
+            //         console.log('use existing transaction')
+            //     }
+            //     console.log('use db client without any transactional behaviour')
+            // } else if (propagationType === "NEVER") {
+            //     if (isRunningInsideTransaction) {
+            //         throw new Error('transactions are not supported for this method');
+            //     }
+            //     console.log('use db client without any transactional behaviour');
+            // } else if (propagationType === 'REQUIRES_NEW') {
+            //     if (isRunningInsideTransaction) {
+            //         console.log('suspend the current transaction and create a new transaction');
+            //     } else {
+            //         console.log('create a new independent transaction')
+            //     }
+            // } else if (propagationType === 'MANDATORY') {
+            //     if (!isRunningInsideTransaction) {
+            //         throw new Error('a pre existing transaction is required');
+            //     }
+            //     console.log('use existing transaction');
+            // }
             if (result === null || result !== void 0) {
                 return result;
             }
