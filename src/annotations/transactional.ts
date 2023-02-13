@@ -1,5 +1,7 @@
 import { TransactionOptions } from "../interfaces/transaction-options";
+import transactionManager from "../services/transaction-manager.service";
 
+import { v4 as uuidv4 } from "uuid";
 
 /**
  * implements the behaviour of springs transaction propagation types https://www.baeldung.com/spring-transactional-propagation-isolation
@@ -15,9 +17,11 @@ export const Transactional = (options: TransactionOptions) => {
 
         descriptor.value = async function (...args: any[]) {
             const result = originalMethod.apply(this, args);
-            const isRunningInsideTransaction = false;
+            const existingTransaction = false;
+            const isRunningInsideTransaction = !!existingTransaction;
             if (options.propagationType === 'REQUIRED') {
                 if (isRunningInsideTransaction) {
+                    const t = transactionManager.createTransaction();
                     console.log('append to existing transaction');
                 } else {
                     console.log('create new transaction');
