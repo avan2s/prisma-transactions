@@ -1,9 +1,7 @@
 -- CreateTable
 CREATE TABLE app_user (
-    "id" TEXT NOT NULL,
+    "id" BIGSERIAL PRIMARY KEY,
     "firstname" TEXT NOT NULL,
     "lastname" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-
-    CONSTRAINT "user_pkey" PRIMARY KEY ("id")
+    "email" TEXT NOT NULL
 );

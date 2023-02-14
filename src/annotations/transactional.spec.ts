@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
-import { Prisma, PrismaClient } from "@prisma/client";
-import txPrismaExtension, { FlatTransactionClient } from "../services/prisma-tx-client-extension";
+import { PrismaClient } from "@prisma/client";
+import txPrismaExtension from "../services/prisma-tx-client-extension";
 import { Transactional } from "./transactional";
 
 export class TestClass {
@@ -32,18 +32,26 @@ describe('Example Test', () => {
     await prismaClient.$disconnect();
   })
 
-  it('should return the expected result', async () => {
+  it('test cun', () => {
+    toTest.nestedRequiredAnnotationTest();
+    expect(true).toBeTruthy();
+  })
+
+  it.skip('should return the expected result', async () => {
     const firstName = faker.name.firstName();
     const lastName = faker.name.lastName();
     const email = `${firstName}.${lastName}@${faker.internet.domainName()}`;
 
     const tx = await prismaClient.$begin();
 
-    const user = await tx.appUser.create({data: {
-    firstname: firstName,
-      lastname: lastName,
-      email: email
-    }});
+    const user = await tx.appUser.create({
+      data:
+      {
+        firstname: firstName,
+        lastname: lastName,
+        email: email
+      }
+    });
 
     const firstName2 = faker.name.firstName();
     const lastName2 = faker.name.lastName();

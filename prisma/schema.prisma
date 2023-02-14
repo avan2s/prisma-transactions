@@ -9,7 +9,7 @@ datasource db {
 }
 
 model AppUser {
-  id        String @id @default(cuid())
+  id        BigInt @id @default(autoincrement())
   firstname String 
   lastname  String 
   email     String 

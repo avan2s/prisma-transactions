@@ -8,18 +8,17 @@ import { v4 as uuidv4 } from "uuid";
  * @param options 
  * @returns 
  */
-export const Transactional = (options: TransactionOptions|Propagation) => {
+export const Transactional = (options: TransactionOptions | Propagation) => {
     return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
         const originalMethod = descriptor.value;
         if (!(originalMethod instanceof Function)) {
             throw new Error("The tansactional annotation can only be used on methods.");
         }
-
         descriptor.value = async function (...args: any[]) {
             const result = originalMethod.apply(this, args);
             const existingTransaction = false;
             const isRunningInsideTransaction = !!existingTransaction;
-            const propagationType = typeof 'string'? options : options;
+            const propagationType = typeof 'string' ? options : options;
             // if (propagationType === 'REQUIRED') {
             //     if (isRunningInsideTransaction) {
             //         const t = transactionManager.createTransaction();
