@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
   
 export type FlatTransactionClient = Prisma.TransactionClient & {
