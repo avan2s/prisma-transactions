@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest -i --verbose --config jest-unit.json",
     "test:int": "jest -i --no-cache --config jest-int.json --verbose --detectOpenHandles",
-    "lint": "eslint 'src/**/*.{ts,tsx}'"
+    "lint": "eslint 'src/**/*.{ts,tsx}' --fix",
+    "lint:test": "eslint 'src/**/*.{ts,tsx}'"
   },
   "keywords": [],
   "author": "",

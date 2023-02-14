@@ -4,40 +4,43 @@ import txPrismaExtension from "../services/prisma-tx-client-extension";
 import { Transactional } from "./transactional";
 
 export class TestClass {
-
   @Transactional("REQUIRED")
   public requiredAnnotationTest(): void {
     // console.log('Doing something');
   }
 
-  @Transactional('REQUIRED')
+  @Transactional("REQUIRED")
   public nestedRequiredAnnotationTest(): void {
     // console.log('do something 2');
     this.requiredAnnotationTest();
   }
 }
 
-
-describe('Example Test', () => {
-  let toTest = new TestClass();
-  let prismaClient = new PrismaClient({ datasources: { db: { url: 'postgresql://postgres:postgres@localhost:6005/postgres' } }, log: ['query'] }).$extends(txPrismaExtension);
+describe("Example Test", () => {
+  const toTest = new TestClass();
+  const prismaClient = new PrismaClient({
+    datasources: {
+      db: { url: "postgresql://postgres:postgres@localhost:6005/postgres" },
+    },
+    log: ["query"],
+  }).$extends(txPrismaExtension);
 
   beforeEach(async () => {
     await prismaClient.appUser.deleteMany();
     // await prismaClient.$connect();
-  })
+  });
 
   afterEach(async () => {
     await prismaClient.appUser.deleteMany();
     await prismaClient.$disconnect();
-  })
+  });
 
-  it('test cun', () => {
+  it("test cun", () => {
     toTest.nestedRequiredAnnotationTest();
     expect(true).toBeTruthy();
-  })
+  });
 
-  it.skip('should return the expected result', async () => {
+  it.skip("should return the expected result", async () => {
     const firstName = faker.name.firstName();
     const lastName = faker.name.lastName();
     const email = `${firstName}.${lastName}@${faker.internet.domainName()}`;
@@ -45,12 +48,11 @@ describe('Example Test', () => {
     const tx = await prismaClient.$begin();
 
     const user = await tx.appUser.create({
-      data:
-      {
+      data: {
         firstname: firstName,
         lastname: lastName,
-        email: email
-      }
+        email: email,
+      },
     });
 
     const firstName2 = faker.name.firstName();
@@ -61,8 +63,8 @@ describe('Example Test', () => {
       data: {
         firstname: firstName2,
         lastname: lastName2,
-        email: email2
-      }
+        email: email2,
+      },
     });
 
     await tx.$commit();
@@ -72,7 +74,4 @@ describe('Example Test', () => {
     // toTest.nestedRequiredAnnotationTest();
     expect(1).toBe(1);
   });
-
-  
-
 });
