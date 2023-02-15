@@ -103,13 +103,13 @@ export const Transactional = (options: TransactionOptions) => {
         // use db client without any transactional behaviour
         const txArgs = fillArgs(args, numberOfAllMethodArgs, prisma);
         result = await originalMethod.apply(this, txArgs);
+      } else if (propagationType === "REQUIRES_NEW") {
+        // suspend the current transaction and create a complete new separate transaction, no matter if it is already running inside a transaction
+        await options.prismaClient.$transaction(async (txClient) => {
+          const txArgs = fillArgs(args, numberOfAllMethodArgs, txClient);
+          result = await originalMethod.apply(this, txArgs);
+        });
       }
-      // else if (propagationType === 'REQUIRES_NEW') {
-      //     if (isRunningInsideTransaction) {
-      //         console.log('suspend the current transaction and create a new transaction');
-      //     } else {
-      //         console.log('create a new independent transaction')
-      //     }
       // } else if (propagationType === 'MANDATORY') {
       //     if (!isRunningInsideTransaction) {
       //         throw new Error('a pre existing transaction is required');
