@@ -44,7 +44,7 @@ export const Transactional = (options: TransactionOptions) => {
     const numberOfAllMethodArgs = Reflect.getMetadata(
       "design:paramtypes",
       target,
-      propertyKey
+      methodName
     ).length;
     if (!(originalMethod instanceof Function)) {
       throw new Error(
