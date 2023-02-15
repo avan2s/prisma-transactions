@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { TransactionOptions } from "../interfaces/transaction-options";
 import "reflect-metadata";
+import { TransactionForPropagationTypeNotSupportedException } from "../exceptions/transaction-not-supported-exception";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isPrismaClient = (obj: any): boolean => {
@@ -36,6 +37,7 @@ export const Transactional = (options: TransactionOptions) => {
     descriptor: PropertyDescriptor
   ) => {
     const originalMethod = descriptor.value;
+    const methodName = propertyKey;
     // originalmethod.length ignores optional parameters, that are defines like (foo, bar='john'). John would not count it it would return 1 instead of 2.
     // Therefore Reflection is used to receive the abolute possible number of arguments
     const numberOfAllMethodArgs = Reflect.getMetadata(
@@ -92,14 +94,17 @@ export const Transactional = (options: TransactionOptions) => {
         // NOTE: that prisma creates a transaction automatically for create and update operations, because nested create statements should run in a single transaction. This way prisma ensures consitenccy
         const txArgs = fillArgs(args, numberOfAllMethodArgs, prisma);
         result = await originalMethod.apply(this, txArgs);
+      } else if (propagationType === "NEVER") {
+        if (isRunningInTransaction) {
+          throw new TransactionForPropagationTypeNotSupportedException(
+            propagationType
+          );
+        }
+        // use db client without any transactional behaviour
+        const txArgs = fillArgs(args, numberOfAllMethodArgs, prisma);
+        result = await originalMethod.apply(this, txArgs);
       }
-
-      // else if (propagationType === "NEVER") {
-      //     if (isRunningInsideTransaction) {
-      //         throw new Error('transactions are not supported for this method');
-      //     }
-      //     console.log('use db client without any transactional behaviour');
-      // } else if (propagationType === 'REQUIRES_NEW') {
+      // else if (propagationType === 'REQUIRES_NEW') {
       //     if (isRunningInsideTransaction) {
       //         console.log('suspend the current transaction and create a new transaction');
       //     } else {
