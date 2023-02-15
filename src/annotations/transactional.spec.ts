@@ -62,9 +62,22 @@ describe("Example Test", () => {
     await prismaClient.$disconnect();
   });
 
-  it.only(`test propagation type REQURED for nested method`, async () => {
+  it(`should attach to pre existing transaction propagation type REQUIRED`, async () => {
     await toTest.nestedRequiredAnnotationTest("bar");
     expect(true).toBeTruthy();
+  });
+
+  it.only(`should create new transaction if not exist yet for propagation type REQUIRED`, async () => {
+    const userArg = {
+      id: 1n,
+      email: "foo@bar.com",
+      firstname: "andy",
+      lastname: "Baum",
+    };
+    const user = await toTest.requiredAnnotationTest(userArg);
+    expect(user.firstname).toBe(userArg.firstname);
+    expect(user.lastname).toBe(userArg.lastname);
+    expect(user.email).toBe(userArg.email);
   });
 
   it("should return the expected result", async () => {

@@ -1,21 +1,6 @@
-# Prisma Client Extension - Callback-free Interactive Transactions
+# Prisma Transaction Library
 
-This example shows a Prisma Client extension which adds a new API for starting [interactive transactions](https://www.prisma.io/docs/concepts/components/prisma-client/transactions#interactive-transactions) without callbacks.
 
-This gives you the full power of [interactive transactions](https://www.prisma.io/docs/concepts/components/prisma-client/transactions#interactive-transactions) (such as read–modify–write cycles), but in a more imperative API. This may be more convenient than the normal callback-style API for interactive transactions in some scenarios:
-
-```typescript
-const tx = await prisma.$begin();
-const user = await tx.user.findFirstOrThrow();
-await tx.user.update(/* ... */);
-await tx.$commit(); // Or: await tx.$rollback();
-```
-
-## Caveats
-
-Prisma Client extensions are currently in developer preview. This extension is provided as an example only. It is not intended to be used in production environments.
-
-Please read [the documentation on `client` extensions](https://www.prisma.io/docs/concepts/components/prisma-client/client-extensions/client) for more information.
 
 ## How to use
 
@@ -29,14 +14,12 @@ Please read [the documentation on `client` extensions](https://www.prisma.io/doc
 Clone this repository:
 
 ```sh
-git clone git@github.com:sbking/prisma-client-extensions.git
+git clone git@github.com:avan2s/prisma-transactions.git
 ```
 
-Create a `.env` file and install dependencies:
+install dependencies:
 
 ```sh
-cd examples/callback-free-itx
-cp .env.example .env
 npm install
 ```
 
@@ -56,20 +39,12 @@ Run this command to apply migrations to the database:
 npx prisma migrate deploy
 ```
 
-### 4. Seed the database
+### 4. Run the `test` script
 
-Run the following command to add seed data to the database:
-
-```sh
-npx prisma db seed
-```
-
-### 5. Run the `dev` script
-
-To run the `script.ts` file, run the following command:
+To test the transactional behaviour, run the following command:
 
 ```sh
-npm run dev
+npm run test
 ```
 
 
