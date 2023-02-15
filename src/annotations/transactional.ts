@@ -87,13 +87,14 @@ export const Transactional = (options: TransactionOptions) => {
             { timeout: 300000 }
           );
         }
+      } else if (propagationType === "SUPPORTS") {
+        // reuse the current prisma client nevertheless it is running inside a transation or not
+        // NOTE: that prisma creates a transaction automatically for create and update operations, because nested create statements should run in a single transaction. This way prisma ensures consitenccy
+        const txArgs = fillArgs(args, numberOfAllMethodArgs, prisma);
+        result = await originalMethod.apply(this, txArgs);
       }
-      // } else if (propagationType === 'SUPPORTS') {
-      //     if (isRunningInsideTransaction) {
-      //         console.log('use existing transaction')
-      //     }
-      //     console.log('use db client without any transactional behaviour')
-      // } else if (propagationType === "NEVER") {
+
+      // else if (propagationType === "NEVER") {
       //     if (isRunningInsideTransaction) {
       //         throw new Error('transactions are not supported for this method');
       //     }
