@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@prisma/client": "^4.10.1",
+    "reflect-metadata": "^0.1.13",
     "uuid": "^9.0.0"
   }
 }

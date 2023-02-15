@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { TransactionOptions } from "../interfaces/transaction-options";
+import "reflect-metadata";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isPrismaClient = (obj: any): boolean => {
@@ -20,7 +21,6 @@ const fillArgs = (
   if (numberOfUndefinedArgs > 0) {
     undefinedArgs.push(...Array.from({ length: numberOfUndefinedArgs }));
   }
-  args.find;
   return args.concat(undefinedArgs, prismaClient);
 };
 
@@ -31,11 +31,18 @@ const fillArgs = (
  */
 export const Transactional = (options: TransactionOptions) => {
   return (
-    target: unknown,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) => {
     const originalMethod = descriptor.value;
+    // originalmethod.length ignores optional parameters, that are defines like (foo, bar='john'). John would not count it it would return 1 instead of 2.
+    // Therefore Reflection is used to receive the abolute possible number of arguments
+    const numberOfAllMethodArgs = Reflect.getMetadata(
+      "design:paramtypes",
+      target,
+      propertyKey
+    ).length;
     if (!(originalMethod instanceof Function)) {
       throw new Error(
         "The tansactional annotation can only be used on methods."
@@ -47,7 +54,6 @@ export const Transactional = (options: TransactionOptions) => {
       // Example: myMethod(foo?,bar?,prismaClient=this.prismaClient) => this is the expected args format. If the caller calls the method with myMethod(), the prismaClient
       // and reason why numberOfAllMethodArgs has to match in case the caller of the method does provide
       // TODO: write a test for this method with args
-      const numberOfAllMethodArgs = originalMethod.length;
       const isLastArgAPrismaClient =
         args.length > 0 && isPrismaClient(args[args.length - 1]);
       const prisma = isLastArgAPrismaClient
@@ -107,7 +113,6 @@ export const Transactional = (options: TransactionOptions) => {
       if (result === null || result !== void 0) {
         return result;
       }
-      // return result === void 0 ? Promise.resolve(undefined) : result;
     };
     return descriptor;
   };

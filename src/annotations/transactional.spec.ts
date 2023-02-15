@@ -62,15 +62,12 @@ describe("Example Test", () => {
     await prismaClient.$disconnect();
   });
 
-  it("test cun", async () => {
+  it.only(`test propagation type REQURED for nested method`, async () => {
     await toTest.nestedRequiredAnnotationTest("bar");
-    // const t = await prismaClient..$begin();
-    // console.log(t.txId);
-    // await t.$commit();
     expect(true).toBeTruthy();
   });
 
-  it.skip("should return the expected result", async () => {
+  it("should return the expected result", async () => {
     const firstName = faker.name.firstName();
     const lastName = faker.name.lastName();
     const email = `${firstName}.${lastName}@${faker.internet.domainName()}`;
