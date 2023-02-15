@@ -1,5 +1,5 @@
 import { faker } from "@faker-js/faker";
-import { AppUser, PrismaClient } from "@prisma/client";
+import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 import { TransactionManager } from "../services/transaction-manager.service";
 import { Transactional } from "./transactional";
 
@@ -7,7 +7,12 @@ const prismaClient = new PrismaClient({
   datasources: {
     db: { url: "postgresql://postgres:postgres@localhost:6005/postgres" },
   },
-  log: ["query"],
+  log: [
+    {
+      level: "query",
+      emit: "event",
+    },
+  ],
 }); //.$extends(txPrismaExtension);
 
 const transactionManager = new TransactionManager(prismaClient);
@@ -63,11 +68,22 @@ describe("Example Test", () => {
   });
 
   it(`should attach to pre existing transaction propagation type REQUIRED`, async () => {
+    const queryEvents: Prisma.QueryEvent[] = [];
+    prismaClient.$on("query", (event) => queryEvents.push(event));
+
     await toTest.nestedRequiredAnnotationTest("bar");
-    expect(true).toBeTruthy();
+    expect(queryEvents.length).toBe(6);
+    expect(queryEvents[0].query).toBe("BEGIN");
+    expect(queryEvents[1].query).toContain("INSERT");
+    expect(queryEvents[2].query).toContain("SELECT");
+    expect(queryEvents[3].query).toContain("INSERT");
+    expect(queryEvents[4].query).toContain("SELECT");
+    expect(queryEvents[5].query).toBe("COMMIT");
   });
 
-  it.only(`should create new transaction if not exist yet for propagation type REQUIRED`, async () => {
+  it(`should create new transaction if not exist yet for propagation type REQUIRED`, async () => {
+    const queryEvents: Prisma.QueryEvent[] = [];
+    prismaClient.$on("query", (event) => queryEvents.push(event));
     const userArg = {
       id: 1n,
       email: "foo@bar.com",
@@ -78,6 +94,11 @@ describe("Example Test", () => {
     expect(user.firstname).toBe(userArg.firstname);
     expect(user.lastname).toBe(userArg.lastname);
     expect(user.email).toBe(userArg.email);
+    expect(queryEvents.length).toBe(4);
+    expect(queryEvents[0].query).toBe("BEGIN");
+    expect(queryEvents[1].query).toContain("INSERT");
+    expect(queryEvents[2].query).toContain("SELECT");
+    expect(queryEvents[3].query).toBe("COMMIT");
   });
 
   it("should return the expected result", async () => {
