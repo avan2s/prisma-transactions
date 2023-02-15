@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 export type FlatTransactionClient = Prisma.TransactionClient & {
   $commit: () => Promise<void>;
   $rollback: () => Promise<void>;
+  txId: string;
 };
 
 const ROLLBACK = { [Symbol.for("prisma.client.extension.rollback")]: true };
@@ -32,7 +33,13 @@ const txPrismaExtension = {
         typeof prisma.$transaction === "function"
       ) {
         const tx = prisma.$transaction(
-          (txClient: Prisma.TransactionClient) => {
+          (txClient: Prisma.TransactionClient & { txId: string }) => {
+            const txId = Math.random().toString(36).substring(2, 15);
+            Object.defineProperty(txClient, "txId", {
+              value: txId,
+              writable: false,
+              configurable: true,
+            });
             setTxClient(txClient);
 
             return txPromise.catch((e) => {

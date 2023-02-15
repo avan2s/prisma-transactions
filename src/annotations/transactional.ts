@@ -1,7 +1,28 @@
-import {
-  Propagation,
-  TransactionOptions,
-} from "../interfaces/transaction-options";
+import { Prisma, PrismaClient } from "@prisma/client";
+import { TransactionOptions } from "../interfaces/transaction-options";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isPrismaClient = (obj: any): boolean => {
+  return (
+    obj &&
+    ((obj.$executeRaw && obj.$queryRaw) ||
+      obj.constructor?.name === "ṔrismaClient")
+  );
+};
+
+const fillArgs = (
+  args: any[],
+  numberOfAllMethodArgs: number,
+  prismaClient: PrismaClient | Prisma.TransactionClient
+) => {
+  const numberOfUndefinedArgs = numberOfAllMethodArgs - args.length - 1;
+  const undefinedArgs = [];
+  if (numberOfUndefinedArgs > 0) {
+    undefinedArgs.push(...Array.from({ length: numberOfUndefinedArgs }));
+  }
+  args.find;
+  return args.concat(undefinedArgs, prismaClient);
+};
 
 /**
  * implements the behaviour of springs transaction propagation types https://www.baeldung.com/spring-transactional-propagation-isolation
@@ -9,25 +30,58 @@ import {
  * @returns
  */
 export const Transactional = (options: TransactionOptions) => {
-  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+  return (
+    target: unknown,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) => {
     const originalMethod = descriptor.value;
     if (!(originalMethod instanceof Function)) {
       throw new Error(
         "The tansactional annotation can only be used on methods."
       );
     }
-    descriptor.value = async function (...args: any[]) {
-      const result = originalMethod.apply(this, args);
-      const existingTransaction = false;
-      const isRunningInsideTransaction = !!existingTransaction;
-      // const propagationType = options.
-      // if (propagationType === 'REQUIRED') {
-      //     if (isRunningInsideTransaction) {
-      //         const t = transactionManager.createTransaction();
-      //         console.log('append to existing transaction');
-      //     } else {
-      //         console.log('create new transaction');
-      //     }
+
+    descriptor.value = async function (...args: unknown[]) {
+      // assuming a @Transactional annotated method has multiple optional values, it is expected that the prisma Client is always the last argument
+      // Example: myMethod(foo?,bar?,prismaClient=this.prismaClient) => this is the expected args format. If the caller calls the method with myMethod(), the prismaClient
+      // and reason why numberOfAllMethodArgs has to match in case the caller of the method does provide
+      // TODO: write a test for this method with args
+      const numberOfAllMethodArgs = originalMethod.length;
+      const isLastArgAPrismaClient =
+        args.length > 0 && isPrismaClient(args[args.length - 1]);
+      const prisma = isLastArgAPrismaClient
+        ? (args[args.length - 1] as PrismaClient)
+        : options.prismaClient;
+
+      if (!prisma) {
+        throw new Error("Unable to find a prisma client.");
+      }
+
+      // the $transaction method is NOT available in a transactional Prisma client
+      const isRunningInTransaction =
+        typeof prisma["$transaction"] !== "function" &&
+        typeof prisma["$executeRaw"] === "function";
+
+      const propagationType = options.propagationType;
+      let result = null;
+
+      if (propagationType === "REQUIRED") {
+        if (isRunningInTransaction) {
+          // reuse the current prisma client
+          const txArgs = fillArgs(args, numberOfAllMethodArgs, prisma);
+          result = await originalMethod.apply(this, txArgs);
+        } else {
+          // create a new transaction
+          await prisma.$transaction(
+            async (txClient) => {
+              const txArgs = fillArgs(args, numberOfAllMethodArgs, txClient);
+              result = await originalMethod.apply(this, txArgs);
+            },
+            { timeout: 300000 }
+          );
+        }
+      }
       // } else if (propagationType === 'SUPPORTS') {
       //     if (isRunningInsideTransaction) {
       //         console.log('use existing transaction')
