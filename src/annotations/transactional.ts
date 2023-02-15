@@ -1,7 +1,8 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { TransactionOptions } from "../interfaces/transaction-options";
 import "reflect-metadata";
-import { TransactionForPropagationTypeNotSupportedException } from "../exceptions/transaction-not-supported-exception";
+import { TransactionForPropagationNotSupportedException } from "../exceptions/transaction-for-propagation-not-supported-exception";
+import { TransactionForPropagationRequiredException } from "../exceptions/transaction-for-propagation-required-exception";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isPrismaClient = (obj: any): boolean => {
@@ -96,7 +97,7 @@ export const Transactional = (options: TransactionOptions) => {
         result = await originalMethod.apply(this, txArgs);
       } else if (propagationType === "NEVER") {
         if (isRunningInTransaction) {
-          throw new TransactionForPropagationTypeNotSupportedException(
+          throw new TransactionForPropagationNotSupportedException(
             propagationType
           );
         }
@@ -109,13 +110,14 @@ export const Transactional = (options: TransactionOptions) => {
           const txArgs = fillArgs(args, numberOfAllMethodArgs, txClient);
           result = await originalMethod.apply(this, txArgs);
         });
+      } else if (propagationType === "MANDATORY") {
+        if (!isRunningInTransaction) {
+          throw new TransactionForPropagationRequiredException(propagationType);
+        }
+        // use existing transaction
+        const txArgs = fillArgs(args, numberOfAllMethodArgs, prisma);
+        result = await originalMethod.apply(this, txArgs);
       }
-      // } else if (propagationType === 'MANDATORY') {
-      //     if (!isRunningInsideTransaction) {
-      //         throw new Error('a pre existing transaction is required');
-      //     }
-      //     console.log('use existing transaction');
-      // }
       if (result === null || result !== void 0) {
         return result;
       }
