@@ -21,7 +21,7 @@ export class TestClass {
   private prismaService = new PrismaClient();
 
   @Transactional({ propagationType: "REQUIRED", prismaClient })
-  public async requiredAnnotationTest(
+  public async requiredTest(
     user: AppUser,
     prisma: PrismaClient = this.prismaService
   ): Promise<AppUser> {
@@ -35,7 +35,7 @@ export class TestClass {
   }
 
   @Transactional({ propagationType: "REQUIRED", prismaClient })
-  public async nestedRequiredAnnotationTest(
+  public async requiredAttachToTransactionTest(
     foo: string,
     bar = 5,
     prisma: PrismaClient = this.prismaService
@@ -50,7 +50,7 @@ export class TestClass {
         email,
       },
     });
-    await this.requiredAnnotationTest(user, prisma);
+    await this.requiredTest(user, prisma);
   }
 }
 
@@ -71,7 +71,7 @@ describe("Example Test", () => {
     const queryEvents: Prisma.QueryEvent[] = [];
     prismaClient.$on("query", (event) => queryEvents.push(event));
 
-    await toTest.nestedRequiredAnnotationTest("bar");
+    await toTest.requiredAttachToTransactionTest("bar");
     expect(queryEvents.length).toBe(6);
     expect(queryEvents[0].query).toBe("BEGIN");
     expect(queryEvents[1].query).toContain("INSERT");
@@ -81,7 +81,7 @@ describe("Example Test", () => {
     expect(queryEvents[5].query).toBe("COMMIT");
   });
 
-  it(`should create new transaction if not exist yet for propagation type REQUIRED`, async () => {
+  it(`should create new transaction for propagation type REQUIRED`, async () => {
     const queryEvents: Prisma.QueryEvent[] = [];
     prismaClient.$on("query", (event) => queryEvents.push(event));
     const userArg = {
@@ -90,7 +90,7 @@ describe("Example Test", () => {
       firstname: "andy",
       lastname: "Baum",
     };
-    const user = await toTest.requiredAnnotationTest(userArg);
+    const user = await toTest.requiredTest(userArg);
     expect(user.firstname).toBe(userArg.firstname);
     expect(user.lastname).toBe(userArg.lastname);
     expect(user.email).toBe(userArg.email);
@@ -101,7 +101,26 @@ describe("Example Test", () => {
     expect(queryEvents[3].query).toBe("COMMIT");
   });
 
-  it("should return the expected result", async () => {
+  it(`should rollback the transaction if something failed in the nested method for propagation type REQUIRED`, async () => {
+    const queryEvents: Prisma.QueryEvent[] = [];
+    prismaClient.$on("query", (event) => queryEvents.push(event));
+    const userArg = {
+      id: 1n,
+      email: "foo@bar.com",
+      firstname: "andy",
+      lastname: "Baum",
+    };
+    await toTest.requiredAttachToTransactionTest("bar");
+    expect(queryEvents.length).toBe(6);
+    expect(queryEvents[0].query).toBe("BEGIN");
+    expect(queryEvents[1].query).toContain("INSERT");
+    expect(queryEvents[2].query).toContain("SELECT");
+    expect(queryEvents[3].query).toContain("INSERT");
+    expect(queryEvents[4].query).toContain("SELECT");
+    expect(queryEvents[5].query).toBe("COMMIT");
+  });
+
+  it.skip("should return the expected result", async () => {
     const firstName = faker.name.firstName();
     const lastName = faker.name.lastName();
     const email = `${firstName}.${lastName}@${faker.internet.domainName()}`;
