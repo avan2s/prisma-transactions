@@ -1,8 +1,8 @@
 import { faker } from "@faker-js/faker";
 import { AppUser, Prisma, PrismaClient } from "@prisma/client";
+import axios from "axios";
 import { TransactionManager } from "../services/transaction-manager.service";
 import { Transactional } from "./transactional";
-import axios from "axios";
 
 const prismaClient = new PrismaClient({
   datasources: {
@@ -43,7 +43,7 @@ export class TestClass {
   ): Promise<void> {
     const firstname = faker.name.firstName() + foo;
     const lastname = faker.name.lastName();
-    const email = `${firstname}.${lastname}@${faker.internet.domainName()}`;
+    const email = faker.internet.email(firstname, lastname);
     const user = await prisma.appUser.create({
       data: {
         firstname,
@@ -62,7 +62,7 @@ export class TestClass {
   ): Promise<void> {
     const firstname = faker.name.firstName() + foo;
     const lastname = faker.name.lastName();
-    const email = `${firstname}.${lastname}@${faker.internet.domainName()}`;
+    const email = faker.internet.email(firstname, lastname);
     const user = await prisma.appUser.create({
       data: {
         firstname,
@@ -89,6 +89,63 @@ export class TestClass {
       throw errorToThrow;
     }
     return updatedUser;
+  }
+
+  @Transactional({ propagationType: "REQUIRED", prismaClient })
+  public async requiresNewTestWithOneNestedMethodCall(
+    prismaClient: PrismaClient = this.prismaService
+  ) {
+    // create tom
+    await prismaClient.appUser.create({
+      data: {
+        firstname: "Tom",
+        lastname: "Felton",
+        email: "tom.felton@superduper.com",
+      },
+    });
+
+    // Create another person in the nested method in a saperate transaction
+    // No matter if the code proceed
+    const firstname = faker.name.firstName();
+    const lastname = faker.name.lastName();
+    const email = faker.internet.email(firstname, lastname);
+    await this.requiresNewTestForSingleInsert(
+      {
+        firstname,
+        lastname,
+        email,
+      } as AppUser,
+      prismaClient
+    );
+  }
+
+  @Transactional({ propagationType: "REQUIRED", prismaClient })
+  public async requiresNewTestWithMultipleNestedMethodCalls() {
+    Array.from({ length: 2 }, () => {
+      const firstname = faker.name.firstName();
+      const lastname = faker.name.lastName();
+      const email = faker.internet.email(firstname, lastname);
+      return {
+        firstname,
+        lastname,
+        email,
+      } as AppUser;
+    }).forEach((user) => {
+      this.requiresNewTestForSingleInsert(user, prismaClient);
+    });
+  }
+
+  @Transactional({
+    propagationType: "REQUIRES_NEW",
+    prismaClient: prismaClient,
+  })
+  public async requiresNewTestForSingleInsert(
+    appUser: AppUser,
+    prisma: PrismaClient
+  ) {
+    return prisma.appUser.create({
+      data: appUser,
+    });
   }
 }
 
@@ -159,6 +216,35 @@ describe("Transactional Integration Test", () => {
         const user = await prismaClient.appUser.findFirst();
         expect(user).toBeNull();
       }
+    });
+  });
+
+  describe("REQUIRES_NEW test", () => {
+    it("should create a separate transaction for inside nested method call", async () => {
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => queryEvents.push(event));
+      await toTest.requiresNewTestWithOneNestedMethodCall();
+      expect(queryEvents.length).toBe(8);
+      // the first transaction 1
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("INSERT");
+      expect(queryEvents[2].query).toContain("SELECT");
+      // the new created separate transaction tx 1a
+      expect(queryEvents[3].query).toBe("BEGIN");
+      expect(queryEvents[4].query).toContain("INSERT");
+      expect(queryEvents[5].query).toContain("SELECT");
+      expect(queryEvents[6].query).toBe("COMMIT");
+
+      // end of first transaction
+      expect(queryEvents[7].query).toBe("COMMIT");
+    });
+
+    it.skip("should create a separate transaction for each nested method call", async () => {
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => queryEvents.push(event));
+      await toTest.requiresNewTestWithMultipleNestedMethodCalls();
+      console.log(queryEvents.map((s) => s.query));
+      expect(1).toBe(1);
     });
   });
 

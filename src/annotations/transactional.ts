@@ -6,7 +6,7 @@ import { TransactionForPropagationRequiredException } from "../exceptions/transa
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isPrismaClient = (obj: any): boolean => {
-  return (
+  return !!(
     obj &&
     ((obj.$executeRaw && obj.$queryRaw) ||
       obj.constructor?.name === "ṔrismaClient")

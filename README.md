@@ -57,3 +57,9 @@ Helpful links:
 
 
 https://github.com/prisma/prisma/discussions/17928
+How to receive transaction id
+https://github.com/prisma/prisma/discussions/17959
+https://github.com/prisma/prisma/discussions/17788
+https://github.com/prisma/prisma/discussions/12373#discussioncomment-3909212
+https://github.com/prisma/prisma/issues/15212
+https://github.com/prisma/prisma/issues/15212
