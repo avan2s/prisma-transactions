@@ -332,6 +332,14 @@ describe("Example Test", () => {
           }
           return prop in target;
         },
+        set: (target: CharacterCache, prop: string, newValue: any) => {
+          const isNumber = !isNaN(Number(prop));
+          if (isNumber) {
+            target[Number(prop)] = { ...newValue, cachingTime: new Date() };
+            return true;
+          }
+          return false;
+        },
       };
 
       const characterCacheProxy = new Proxy(characterCache, cacheHandler);
@@ -357,6 +365,22 @@ describe("Example Test", () => {
       expect(character.cachingTime).toBeInstanceOf(Date);
       expect(1 in characterCacheProxy).toBeTruthy();
       expect(2 in characterCacheProxy).toBeFalsy();
+
+      characterCacheProxy[-2] = {
+        name: "foo",
+        status: "alive",
+        species: "human",
+      };
+
+      character = await characterCacheProxy[-2];
+
+      expect(characterCache[-2]).toBeDefined();
+      expect(character).toMatchObject({
+        name: "foo",
+        status: "alive",
+        species: "human",
+      });
+      expect(character.cachingTime).toBeInstanceOf(Date);
     });
   });
 });
