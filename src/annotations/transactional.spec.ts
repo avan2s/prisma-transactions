@@ -54,6 +54,7 @@ export class TestClass {
     await this.requiredTest(user, prisma);
   }
 
+  @Transactional({ propagationType: "REQUIRED", prismaClient })
   public async requiredNestedRollbackTest(
     foo: string,
     errorToThrowInNestedMethod: Error,
@@ -138,15 +139,24 @@ describe("Example Test", () => {
     expect(queryEvents[3].query).toBe("COMMIT");
   });
 
-  it.skip(`should rollback the transaction if something failed in the nested method for propagation type REQUIRED`, async () => {
+  it(`should rollback the transaction if something failed in the nested method for propagation type REQUIRED`, async () => {
     const queryEvents: Prisma.QueryEvent[] = [];
     prismaClient.$on("query", (event) => queryEvents.push(event));
     const expectedError = new Error("some Error");
     try {
       await toTest.requiredNestedRollbackTest("bar", expectedError);
     } catch (err) {
+      expect(queryEvents.length).toBe(7);
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("INSERT");
+      expect(queryEvents[2].query).toContain("SELECT");
+      expect(queryEvents[3].query).toContain("SELECT");
+      expect(queryEvents[4].query).toContain("UPDATE");
+      expect(queryEvents[5].query).toContain("SELECT");
+      expect(queryEvents[6].query).toBe("ROLLBACK");
+
       const user = await prismaClient.appUser.findFirst();
-      expect(user).toBeUndefined();
+      expect(user).toBeNull();
     }
   });
 
