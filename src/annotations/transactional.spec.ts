@@ -150,40 +150,6 @@ describe("Example Test", () => {
     }
   });
 
-  it.skip("should rollback interactive transaction", async () => {
-    const queryEvents: Prisma.QueryEvent[] = [];
-    const expectedError = new Error("some Error");
-    prismaClient.$on("query", (event) => queryEvents.push(event));
-    prismaClient
-      .$transaction(
-        async (txClient) => {
-          const firstname = faker.name.firstName();
-          const lastname = faker.name.lastName();
-          const email = `${firstname}.${lastname}@${faker.internet.domainName()}`;
-          const user = await txClient.appUser.create({
-            data: {
-              firstname,
-              lastname,
-              email,
-            },
-          });
-          const updatedUser = await txClient.appUser.update({
-            where: { id: user.id },
-            data: {
-              firstname: `${user.firstname}-II`,
-            },
-          });
-          throw expectedError;
-        },
-        { timeout: 300000 }
-      )
-      .catch(async (err) => {
-        const user = await prismaClient.appUser.findFirst();
-        console.log(queryEvents);
-        expect(user).toBeNull();
-      });
-  });
-
   it.skip("should return the expected result", async () => {
     const firstName = faker.name.firstName();
     const lastName = faker.name.lastName();
@@ -220,6 +186,53 @@ describe("Example Test", () => {
   });
 
   describe("learning test", () => {
+    it("should rollback interactive transaction", async () => {
+      const queryEvents: Prisma.QueryEvent[] = [];
+      const expectedError = new Error("some Error");
+      prismaClient.$on("query", (event) => queryEvents.push(event));
+      await prismaClient
+        .$transaction(
+          async (txClient) => {
+            // create twins on one transaction, either both or nobody
+            const firstname = faker.name.firstName();
+            const lastname = faker.name.lastName();
+            const emailTwin1 = `${firstname}.${lastname}@${faker.internet.domainName()}`;
+            const twin1 = await txClient.appUser.create({
+              data: {
+                firstname,
+                lastname,
+                email: emailTwin1,
+              },
+            });
+            const firstname2 = faker.name.firstName();
+            const emailTwin2 = `${firstname2}.${lastname}@${faker.internet.domainName()}`;
+            const twin2 = await txClient.appUser.create({
+              data: {
+                firstname: firstname2,
+                lastname: lastname,
+                email: emailTwin2,
+              },
+            });
+            throw new Error("some Error");
+          },
+          { timeout: 300000 }
+        )
+        .catch(async (err) => {
+          expect(err.message).toBe(expectedError.message);
+        });
+
+      expect(queryEvents.length).toBe(6);
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("INSERT");
+      expect(queryEvents[2].query).toContain("SELECT");
+      expect(queryEvents[3].query).toContain("INSERT");
+      expect(queryEvents[4].query).toContain("SELECT");
+      expect(queryEvents[5].query).toBe("ROLLBACK");
+      const user = await prismaClient.appUser.findFirst();
+
+      expect(user).toBeNull();
+    });
+
     it("testing out calling functions, which are assigned in a promise ", async () => {
       let commit: () => void;
       let rollback: () => void;
@@ -238,8 +251,8 @@ describe("Example Test", () => {
       // c();
       r();
       await txPromise
-        .then((s) => console.log("iam done " + s))
-        .catch((s) => console.log("rejected with " + s));
+        .then((s) => expect(s).toBe("success"))
+        .catch((s) => expect(s).toBe("failed"));
     });
 
     it("create own proxy", () => {
