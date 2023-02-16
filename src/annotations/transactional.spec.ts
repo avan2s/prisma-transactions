@@ -284,7 +284,7 @@ describe("Example Test", () => {
       // proxy class from javascript provides these kind of better syntax
     });
 
-    it.only("using javascript proxy", async () => {
+    it("using javascript proxy", async () => {
       async function fetchCharacterFromAPI(id: number) {
         try {
           const character = await axios.get(
@@ -307,23 +307,36 @@ describe("Example Test", () => {
 
       interface CharacterCache {
         [key: number]: Character;
+        getGreeting: () => string;
+        getAsyncGreeting: () => Promise<string>;
       }
 
-      const characterCache: CharacterCache = {};
+      const characterCache: CharacterCache = {
+        getGreeting: (): string => {
+          return "hello";
+        },
+        getAsyncGreeting: function (): Promise<string> {
+          return new Promise((resolve) => {
+            setTimeout(() => resolve("async hello"), 1000);
+          });
+        },
+      };
 
       const cacheHandler: ProxyHandler<CharacterCache> = {
-        get: async (target: CharacterCache, prop: string) => {
+        get: (target: CharacterCache, prop: string) => {
           const isNumber = !isNaN(Number(prop));
           if (isNumber) {
             const id = Number(prop);
             if (target[id]) {
               return target[id];
             }
-            const character = await fetchCharacterFromAPI(Number(prop));
-            characterCache[id] = { ...character, cachingTime: new Date() };
-            return characterCache[id];
+            return fetchCharacterFromAPI(Number(prop)).then((character) => {
+              characterCache[id] = { ...character, cachingTime: new Date() };
+              return characterCache[id];
+            });
+          } else {
+            return target[prop as keyof typeof target];
           }
-          // return target[id as keyof typeof target];
         },
         has: (target: CharacterCache, prop: string) => {
           const isNumber = !isNaN(Number(prop));
@@ -353,6 +366,11 @@ describe("Example Test", () => {
         species: "Human",
       });
       expect(character.cachingTime).toBeInstanceOf(Date);
+      const greet = characterCacheProxy.getGreeting();
+      expect(greet).toBe("hello");
+
+      const asyncGreet = await characterCacheProxy.getAsyncGreeting();
+      expect(asyncGreet).toBe("async hello");
 
       // second call
       character = await characterCacheProxy[1];
