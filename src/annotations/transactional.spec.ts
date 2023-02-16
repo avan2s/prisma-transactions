@@ -325,6 +325,13 @@ describe("Example Test", () => {
           }
           // return target[id as keyof typeof target];
         },
+        has: (target: CharacterCache, prop: string) => {
+          const isNumber = !isNaN(Number(prop));
+          if (isNumber) {
+            return Number(prop) in target;
+          }
+          return prop in target;
+        },
       };
 
       const characterCacheProxy = new Proxy(characterCache, cacheHandler);
@@ -348,6 +355,8 @@ describe("Example Test", () => {
         species: "Human",
       });
       expect(character.cachingTime).toBeInstanceOf(Date);
+      expect(1 in characterCacheProxy).toBeTruthy();
+      expect(2 in characterCacheProxy).toBeFalsy();
     });
   });
 });
