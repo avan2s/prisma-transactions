@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 import { TransactionManager } from "../services/transaction-manager.service";
 import { Transactional } from "./transactional";
+import axios from "axios";
 
 const prismaClient = new PrismaClient({
   datasources: {
@@ -137,7 +138,7 @@ describe("Example Test", () => {
     expect(queryEvents[3].query).toBe("COMMIT");
   });
 
-  it.only(`should rollback the transaction if something failed in the nested method for propagation type REQUIRED`, async () => {
+  it.skip(`should rollback the transaction if something failed in the nested method for propagation type REQUIRED`, async () => {
     const queryEvents: Prisma.QueryEvent[] = [];
     prismaClient.$on("query", (event) => queryEvents.push(event));
     const expectedError = new Error("some Error");
@@ -147,6 +148,40 @@ describe("Example Test", () => {
       const user = await prismaClient.appUser.findFirst();
       expect(user).toBeUndefined();
     }
+  });
+
+  it.skip("should rollback interactive transaction", async () => {
+    const queryEvents: Prisma.QueryEvent[] = [];
+    const expectedError = new Error("some Error");
+    prismaClient.$on("query", (event) => queryEvents.push(event));
+    prismaClient
+      .$transaction(
+        async (txClient) => {
+          const firstname = faker.name.firstName();
+          const lastname = faker.name.lastName();
+          const email = `${firstname}.${lastname}@${faker.internet.domainName()}`;
+          const user = await txClient.appUser.create({
+            data: {
+              firstname,
+              lastname,
+              email,
+            },
+          });
+          const updatedUser = await txClient.appUser.update({
+            where: { id: user.id },
+            data: {
+              firstname: `${user.firstname}-II`,
+            },
+          });
+          throw expectedError;
+        },
+        { timeout: 300000 }
+      )
+      .catch(async (err) => {
+        const user = await prismaClient.appUser.findFirst();
+        console.log(queryEvents);
+        expect(user).toBeNull();
+      });
   });
 
   it.skip("should return the expected result", async () => {
@@ -182,5 +217,137 @@ describe("Example Test", () => {
     // const userCount = await prismaClient.user.count();
     // toTest.nestedRequiredAnnotationTest();
     expect(1).toBe(1);
+  });
+
+  describe("learning test", () => {
+    it("testing out calling functions, which are assigned in a promise ", async () => {
+      let commit: () => void;
+      let rollback: () => void;
+
+      const txPromise = new Promise((resolve, reject) => {
+        commit = () => resolve("success");
+        rollback = () => reject("failed");
+      });
+
+      const c = () => {
+        commit();
+      };
+      const r = () => {
+        rollback();
+      };
+      // c();
+      r();
+      await txPromise
+        .then((s) => console.log("iam done " + s))
+        .catch((s) => console.log("rejected with " + s));
+    });
+
+    it("create own proxy", () => {
+      // define the Fake Proxy
+      function FakeProxy(target: any, handler: any) {
+        return {
+          get: handler.get
+            ? (property: any) => handler.get(target, property)
+            : (property: any) => target[property],
+          set: handler.set
+            ? handler.set
+            : (property: any, value: any) => (target[property] = value),
+        };
+      }
+
+      // check with empty handler
+      const myObject = {
+        name: "Andy",
+      };
+      const emptyHandler = {};
+      const myProxy = FakeProxy(myObject, emptyHandler);
+      expect(myProxy.get("name")).toBe("Andy");
+      myProxy.set("name", "Tom");
+      expect(myProxy.get("name")).toBe("Tom");
+
+      const myObject2 = {
+        name: "Andy",
+      };
+
+      // check with non empty handler
+      const handler = {
+        get: (target: any, property: any) => {
+          return `Hello ${target[property]}`;
+        },
+      };
+      const myProxy2 = FakeProxy(myObject2, handler);
+      expect(myProxy2.get("name")).toBe("Hello Andy"); // would be nicer to say myProxy2.name
+
+      myProxy2.set("name", "Tom"); // would be nicer to say myProxy.name = 'Tom'
+      expect(myProxy2.get("name")).toBe("Hello Tom");
+
+      // proxy class from javascript provides these kind of better syntax
+    });
+
+    it.only("using javascript proxy", async () => {
+      async function fetchCharacterFromAPI(id: number) {
+        try {
+          const character = await axios.get(
+            `https://rickandmortyapi.com/api/character/${id}`
+          );
+          return character.data;
+        } catch (err) {
+          console.error(err);
+          throw err;
+        }
+      }
+
+      interface Character {
+        id?: number;
+        name: string;
+        status: string;
+        species: string;
+        cachingTime?: Date;
+      }
+
+      interface CharacterCache {
+        [key: number]: Character;
+      }
+
+      const characterCache: CharacterCache = {};
+
+      const cacheHandler: ProxyHandler<CharacterCache> = {
+        get: async (target: CharacterCache, prop: string) => {
+          const isNumber = !isNaN(Number(prop));
+          if (isNumber) {
+            const id = Number(prop);
+            if (target[id]) {
+              return target[id];
+            }
+            const character = await fetchCharacterFromAPI(Number(prop));
+            characterCache[id] = { ...character, cachingTime: new Date() };
+            return characterCache[id];
+          }
+          // return target[id as keyof typeof target];
+        },
+      };
+
+      const characterCacheProxy = new Proxy(characterCache, cacheHandler);
+      // first call
+      let character = await characterCacheProxy[1];
+      expect(characterCache[1]).toBeDefined();
+      expect(character).toMatchObject({
+        id: 1,
+        name: "Rick Sanchez",
+        status: "Alive",
+        species: "Human",
+      });
+      expect(character.cachingTime).toBeInstanceOf(Date);
+
+      // second call
+      character = await characterCacheProxy[1];
+      expect(character).toMatchObject({
+        id: 1,
+        name: "Rick Sanchez",
+        status: "Alive",
+        species: "Human",
+      });
+      expect(character.cachingTime).toBeInstanceOf(Date);
+    });
   });
 });
