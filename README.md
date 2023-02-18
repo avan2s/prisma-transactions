@@ -63,3 +63,7 @@ https://github.com/prisma/prisma/discussions/17788
 https://github.com/prisma/prisma/discussions/12373#discussioncomment-3909212
 https://github.com/prisma/prisma/issues/15212
 https://github.com/prisma/prisma/issues/15212
+
+transaction inside transaction
+https://github.com/prisma/prisma/issues/9083
+https://github.com/prisma/prisma/discussions/10619
