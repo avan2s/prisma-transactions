@@ -49,7 +49,7 @@ npm run test
 
 
 
-Helpful links:
+# Helpful links:
 - https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#params
 - https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#create-multiple-new-records
 - https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#use
@@ -57,13 +57,16 @@ Helpful links:
 
 
 https://github.com/prisma/prisma/discussions/17928
-How to receive transaction id
-https://github.com/prisma/prisma/discussions/17959
-https://github.com/prisma/prisma/discussions/17788
-https://github.com/prisma/prisma/discussions/12373#discussioncomment-3909212
-https://github.com/prisma/prisma/issues/15212
-https://github.com/prisma/prisma/issues/15212
+## How to receive transaction id
+- https://github.com/prisma/prisma/discussions/17959
+- https://github.com/prisma/prisma/discussions/17788
+- https://github.com/prisma/prisma/discussions/12373#discussioncomment-3909212
+- https://github.com/prisma/prisma/issues/15212
+- https://github.com/prisma/prisma/issues/15212
 
-transaction inside transaction
-https://github.com/prisma/prisma/issues/9083
-https://github.com/prisma/prisma/discussions/10619
+## Transaction inside transaction
+- https://github.com/prisma/prisma/issues/9083
+- https://github.com/prisma/prisma/discussions/10619
+
+## TypeOrmSolution wit unit testing:
+- https://github.com/odavid/typeorm-transactional-cls-hooked
