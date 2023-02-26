@@ -3,6 +3,7 @@ import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 import axios from "axios";
 import { TransactionManager } from "../services/transaction-manager.service";
 import { Transactional } from "./transactional";
+import { AsyncLocalStorage } from "async_hooks";
 
 const prismaClient = new PrismaClient({
   datasources: {
@@ -120,7 +121,9 @@ export class TestClass {
   }
 
   @Transactional({ propagationType: "REQUIRED", prismaClient })
-  public async requiresNewTestWithMultipleNestedMethodCalls() {
+  public async requiresNewTestWithMultipleNestedMethodCalls(
+    prismaClient: PrismaClient = this.prismaService
+  ) {
     Array.from({ length: 2 }, () => {
       const firstname = faker.name.firstName();
       const lastname = faker.name.lastName();
@@ -510,6 +513,27 @@ describe("Transactional Integration Test", () => {
         species: "human",
       });
       expect(character.cachingTime).toBeInstanceOf(Date);
+    });
+
+    it.only("example usage AsyncLocalStorage", () => {
+      const asyncLocalStorage = new AsyncLocalStorage<string>();
+      const runDatabaseTransaction = async (context: string) => {
+        // Set the current context using the AsyncLocalStorage instance
+        asyncLocalStorage.run(context, async () => {
+          console.log(`Running database transaction with context: ${context}`);
+          // Simulate a database operation
+          console.log(asyncLocalStorage.getStore());
+          const nestedContext = context + "-nested";
+          asyncLocalStorage.run(nestedContext, async () => {
+            console.log(asyncLocalStorage.getStore());
+          });
+          console.log(asyncLocalStorage.getStore());
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        });
+      };
+      // Call the function with two different contexts
+      runDatabaseTransaction("context1");
+      runDatabaseTransaction("context2");
     });
   });
 });
