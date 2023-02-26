@@ -70,3 +70,7 @@ https://github.com/prisma/prisma/discussions/17928
 
 ## TypeOrmSolution wit unit testing:
 - https://github.com/odavid/typeorm-transactional-cls-hooked
+
+
+## Prisma client type
+https://github.com/prisma/prisma/discussions/18032
