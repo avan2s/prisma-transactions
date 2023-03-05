@@ -515,7 +515,7 @@ describe("Transactional Integration Test", () => {
       expect(character.cachingTime).toBeInstanceOf(Date);
     });
 
-    it.only("example usage AsyncLocalStorage", () => {
+    it("example usage AsyncLocalStorage", () => {
       const asyncLocalStorage = new AsyncLocalStorage<string>();
       const runDatabaseTransaction = async (context: string) => {
         // Set the current context using the AsyncLocalStorage instance

@@ -4,44 +4,46 @@ const TEST = "someurl";
 const HOST = "someHost";
 const DB = "someDatabase";
 
-type IExtendedPrismaClient = ReturnType<
-  typeof DatabaseController.createExtendedClient
->;
+function createExtendedClient(databaseUrl: string) {
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: databaseUrl,
+      },
+    },
+  }).$extends({
+    // name: "Testclient",
+    result: {
+      appUser: {
+        Name: {
+          needs: {
+            firstname: true,
+            lastname: true,
+          },
+          compute(model) {
+            return `${model.firstname} ${model.lastname}`;
+          },
+        },
+      },
+    },
+  });
+}
+
+export type IExtendedPrismaClient = ReturnType<typeof createExtendedClient>;
 
 export class DatabaseController {
-  static createBaseClient(database: string) {
+  public static createBaseClient(database: string) {
     return new PrismaClient({
       datasources: {
         db: {
-          url: `mysql://${TEST}:@${HOST}:3306/${DB}`,
+          url: database,
         },
       },
     });
   }
 
-  static createExtendedClient(database: string) {
-    return new PrismaClient({
-      datasources: {
-        db: {
-          url: `mysql://${TEST}:@${HOST}:3306/${DB}`,
-        },
-      },
-    }).$extends({
-      // name: "Testclient",
-      result: {
-        appUser: {
-          Name: {
-            needs: {
-              firstname: true,
-              lastname: true,
-            },
-            compute(model) {
-              return `TEST_${model.firstname} ${model.lastname}`;
-            },
-          },
-        },
-      },
-    });
+  public static createExtendedClient(database: string): IExtendedPrismaClient {
+    return createExtendedClient(database);
   }
 
   public static async initializeClientMap(): Promise<
@@ -56,20 +58,20 @@ export class DatabaseController {
   }
 }
 
-// this one will have the property NAME available = no type error
-const client: IExtendedPrismaClient =
-  DatabaseController.createExtendedClient("someUselessUrl");
+// // this one will have the property NAME available = no type error
+// const client: IExtendedPrismaClient =
+//   DatabaseController.createExtendedClient("someUselessUrl");
 
-client.appUser.findFirst().then((u) => u?.Name);
+// client.appUser.findFirst().then((u) => u?.Name);
 
-DatabaseController.initializeClientMap().then((map) => {
-  map
-    .get("foo")
-    ?.appUser.findFirst()
-    .then((u) => u?.Name);
+// DatabaseController.initializeClientMap().then((map) => {
+//   map
+//     .get("foo")
+//     ?.appUser.findFirst()
+//     .then((u) => u?.Name);
 
-  const prisma = map.get("bar");
-});
+//   const prisma = map.get("bar");
+// });
 
 // this will not have the Name property available - type error
 // DatabaseController.createBaseClient("someUselessUrl")

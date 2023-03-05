@@ -10,8 +10,19 @@ datasource db {
 
 model AppUser {
   id        BigInt @id @default(autoincrement())
-  firstname String 
-  lastname  String 
-  email     String 
-	@@map("app_user")
+  firstname String
+  lastname  String
+  email     String
+  posts     Post[]
+
+  @@map("app_user")
+}
+
+model Post {
+  id      BigInt @id @default(autoincrement())
+  comment String
+  userId BigInt
+  user AppUser @relation(fields: [userId], references: [id])
+
+  @@map("post")
 }
