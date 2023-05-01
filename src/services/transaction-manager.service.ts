@@ -1,15 +1,22 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import { ITransactionManager } from "../interfaces/transaction-manager.interface";
+import { TransactionContextStore } from "./transaction-context-store";
 
 export type IPrismaClient = Omit<PrismaClient, "$use">;
 
 // $transaction<R>(fn: (prisma: Omit<this, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use">) => Promise<R>, options?: { maxWait?: number, timeout?: number, isolationLevel?: Prisma.TransactionIsolationLevel }): Promise<R>
 
 export class TransactionManager implements ITransactionManager {
-  private transactionNumberToDbClient = new Map<string, string>();
+  private transactionContextToDbClient = new Map<string, string>();
 
-  constructor(private prisma: IPrismaClient) {}
+  constructor(
+    private transactionContextStore = TransactionContextStore.getInstance()
+  ) {}
+
+  private getTransactionContext(): string | undefined {
+    return this.transactionContextStore.getTransactionContext();
+  }
 
   public async startTransaction(): Promise<void> {
     return;
@@ -24,20 +31,27 @@ export class TransactionManager implements ITransactionManager {
 
   public async createTransaction() {
     const key = this.generateRandomTransactionNumber();
-    const value = `DB-Client-${key}`;
-    this.transactionNumberToDbClient.set(key, value);
+    // this.transactionContextToDbClient.set(key, value);
     return key;
   }
 
-  public async getTransaction(transactionNumber: string) {
-    return this.transactionNumberToDbClient.get(transactionNumber);
+  public getTransaction(): string | undefined {
+    const context = this.getTransactionContext();
+    if (!context) {
+      return undefined;
+    }
+    return this.transactionContextToDbClient.get(context);
   }
 
-  public deleteTransaction(transactionNumber: string) {
-    return this.transactionNumberToDbClient.delete(transactionNumber);
+  private deleteTransaction() {
+    const context = this.getTransactionContext();
+    if (!context) {
+      return true;
+    }
+    return this.transactionContextToDbClient.delete(context);
   }
 
-  public generateRandomTransactionNumber() {
+  private generateRandomTransactionNumber() {
     return uuidv4();
   }
 }
