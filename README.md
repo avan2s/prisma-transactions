@@ -67,6 +67,7 @@ https://github.com/prisma/prisma/discussions/17928
 ## Transaction inside transaction
 - https://github.com/prisma/prisma/issues/9083
 - https://github.com/prisma/prisma/discussions/10619
+- https://github.com/prisma/prisma/discussions/12373
 
 ## TypeOrmSolution wit unit testing:
 - https://github.com/odavid/typeorm-transactional-cls-hooked
