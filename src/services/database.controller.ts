@@ -1,9 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 
-const TEST = "someurl";
-const HOST = "someHost";
-const DB = "someDatabase";
-
 function createExtendedClient(databaseUrl: string) {
   return new PrismaClient({
     datasources: {
