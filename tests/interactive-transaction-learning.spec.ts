@@ -1,6 +1,8 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { faker } from "@faker-js/faker";
 
+import { extendTransaction } from "../src/services/extend-transaction";
+
 describe("prisma learning tests", () => {
   const prismaClient = new PrismaClient({
     datasources: {
@@ -13,6 +15,16 @@ describe("prisma learning tests", () => {
       },
     ],
   });
+
+  beforeEach(async () => {
+    await prismaClient.appUser.deleteMany();
+  });
+
+  afterEach(async () => {
+    await prismaClient.appUser.deleteMany();
+    await prismaClient.$disconnect();
+  });
+
   it("should rollback interactive transaction", async () => {
     const queryEvents: Prisma.QueryEvent[] = [];
     const expectedError = new Error("some Error");
@@ -58,5 +70,30 @@ describe("prisma learning tests", () => {
     const user = await prismaClient.appUser.findFirst();
 
     expect(user).toBeNull();
+  });
+
+  it("extend transaction client to use nested transaction inside transaction", async () => {
+    const queryEvents: Prisma.QueryEvent[] = [];
+    prismaClient.$on("query", (event) => queryEvents.push(event));
+    await prismaClient.$transaction(async (tx) => {
+      const user = await tx.appUser.create({
+        data: {
+          firstname: "John",
+          lastname: "Doe",
+          email: "john.doe@gmail.com",
+        },
+      });
+
+      const composedClient = extendTransaction(tx) as PrismaClient;
+      await composedClient.$transaction(async (tx) => {
+        await tx.appUser.create({
+          data: {
+            firstname: "foo",
+            lastname: "bar",
+            email: "foo.bar@gmail.com",
+          },
+        });
+      });
+    });
   });
 });
