@@ -32,23 +32,18 @@ const txPrismaExtension = {
         "$transaction" in prisma &&
         typeof prisma.$transaction === "function"
       ) {
-        const tx = prisma.$transaction(
-          (txClient: Prisma.TransactionClient & { txId: string }) => {
-            const txId = Math.random().toString(36).substring(2, 15);
-            Object.defineProperty(txClient, "txId", {
-              value: txId,
-              writable: false,
-              configurable: true,
-            });
-            setTxClient(txClient);
-
-            return txPromise.catch((e) => {
-              if (e === ROLLBACK) return;
-              throw e;
-            });
-          },
-          { timeout: 300000 }
-        );
+        const tx = prisma
+          .$transaction(
+            (txClient: Prisma.TransactionClient & { txId: string }) => {
+              setTxClient(txClient);
+              return txPromise;
+            },
+            { timeout: 300000 }
+          )
+          .catch((e: Error | { [x: symbol]: boolean }) => {
+            if (e === ROLLBACK) return;
+            throw e;
+          });
 
         // return a proxy TransactionClient with `$commit` and `$rollback` methods
         return new Proxy(await txClient, {
@@ -65,7 +60,10 @@ const txPrismaExtension = {
                 return tx;
               };
             }
-            return target[prop as keyof typeof target];
+            // @ts-expect-error - Fixing this type causes the TypeScript type checker to freeze
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return target[prop];
+            // return target[prop as keyof typeof target];
           },
         }) as FlatTransactionClient;
       }

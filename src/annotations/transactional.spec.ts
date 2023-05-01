@@ -249,39 +249,4 @@ describe("Transactional Integration Test", () => {
       expect(1).toBe(1);
     });
   });
-
-  it.skip("should return the expected result", async () => {
-    const firstName = faker.name.firstName();
-    const lastName = faker.name.lastName();
-    const email = `${firstName}.${lastName}@${faker.internet.domainName()}`;
-
-    // const tx = await prismaClient.$begin();
-
-    // const user = await tx.appUser.create({
-    //   data: {
-    //     firstname: firstName,
-    //     lastname: lastName,
-    //     email: email,
-    //   },
-    // });
-
-    const firstName2 = faker.name.firstName();
-    const lastName2 = faker.name.lastName();
-    const email2 = `${firstName}.${lastName}@${faker.internet.domainName()}`;
-
-    // const user2 = await tx.appUser.create({
-    //   data: {
-    //     firstname: firstName2,
-    //     lastname: lastName2,
-    //     email: email2,
-    //   },
-    // });
-
-    // await tx.$commit();
-    // await prismaClient.$queryRaw`INSERT INTO app_user(id,firstname,lastname,email) VALUES('foo','peter','klaus','frida@boo.com') RETURNING id`;
-    // console.log(user);
-    // const userCount = await prismaClient.user.count();
-    // toTest.nestedRequiredAnnotationTest();
-    expect(1).toBe(1);
-  });
 });
