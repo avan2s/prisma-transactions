@@ -1,3 +1,4 @@
+import { PrismaClient } from "@prisma/client";
 import axios from "axios";
 
 describe("proxy learning tests", () => {
@@ -68,6 +69,7 @@ describe("proxy learning tests", () => {
       [key: number]: Character;
       getGreeting: () => string;
       getAsyncGreeting: () => Promise<string>;
+      getAsyncCiao: (name: string) => Promise<string>;
     }
 
     const characterCache: CharacterCache = {
@@ -76,7 +78,12 @@ describe("proxy learning tests", () => {
       },
       getAsyncGreeting: function (): Promise<string> {
         return new Promise((resolve) => {
-          setTimeout(() => resolve("async hello"), 1000);
+          setTimeout(() => resolve("async hello"), 100);
+        });
+      },
+      getAsyncCiao: (name: string): Promise<string> => {
+        return new Promise((resolve) => {
+          setTimeout(() => resolve(`async ciao ${name}`), 100);
         });
       },
     };
@@ -93,6 +100,11 @@ describe("proxy learning tests", () => {
             characterCache[id] = { ...character, cachingTime: new Date() };
             return characterCache[id];
           });
+        } else if (prop === "getAsyncCiao") {
+          return async (func: any) => {
+            console.log(func);
+            return `changed ciao ${func}`;
+          };
         } else {
           return target[prop as keyof typeof target];
         }
@@ -158,5 +170,30 @@ describe("proxy learning tests", () => {
       species: "human",
     });
     expect(character.cachingTime).toBeInstanceOf(Date);
+
+    const asyncCiao = await characterCacheProxy.getAsyncCiao("peter");
+    expect(asyncCiao).toBe("changed ciao peter");
+  });
+
+  it("get billing models", () => {
+    const prismaClient = new PrismaClient({
+      datasources: {
+        db: { url: "postgresql://postgres:postgres@localhost:6005/postgres" },
+      },
+      log: [
+        {
+          level: "query",
+          emit: "event",
+        },
+      ],
+    });
+    const models = Reflect.ownKeys(prismaClient).filter(
+      (key) =>
+        typeof key === "string" &&
+        key[0] !== "_" &&
+        key[0] !== "$" &&
+        key !== "logger"
+    );
+    console.log(models);
   });
 });

@@ -8,7 +8,7 @@ export type IPrismaClient = Omit<PrismaClient, "$use">;
 // $transaction<R>(fn: (prisma: Omit<this, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use">) => Promise<R>, options?: { maxWait?: number, timeout?: number, isolationLevel?: Prisma.TransactionIsolationLevel }): Promise<R>
 
 export class TransactionManager implements ITransactionManager {
-  private transactionContextToDbClient = new Map<string, string>();
+  private transactionContextToDbClient = new Map<string, PrismaClient>();
 
   constructor(
     private transactionContextStore = TransactionContextStore.getInstance()
@@ -35,7 +35,7 @@ export class TransactionManager implements ITransactionManager {
     return key;
   }
 
-  public getTransaction(): string | undefined {
+  public getTransaction(): PrismaClient | undefined {
     const context = this.getTransactionContext();
     if (!context) {
       return undefined;
