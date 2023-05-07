@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import axios from "axios";
 
 describe("proxy learning tests", () => {
@@ -175,7 +175,7 @@ describe("proxy learning tests", () => {
     expect(asyncCiao).toBe("changed ciao peter");
   });
 
-  it("get billing models", () => {
+  it.only("get billing models", async () => {
     const prismaClient = new PrismaClient({
       datasources: {
         db: { url: "postgresql://postgres:postgres@localhost:6005/postgres" },
@@ -187,13 +187,12 @@ describe("proxy learning tests", () => {
         },
       ],
     });
-    const models = Reflect.ownKeys(prismaClient).filter(
-      (key) =>
-        typeof key === "string" &&
-        key[0] !== "_" &&
-        key[0] !== "$" &&
-        key !== "logger"
-    );
-    console.log(models);
+
+    const model = Prisma.dmmf.datamodel.models[0];
+
+    const models = Prisma.dmmf.datamodel.models.map((m) => m.name);
+
+    expect(models.length).toBeGreaterThan(0);
+    expect(models).toContain("AppUser");
   });
 });
