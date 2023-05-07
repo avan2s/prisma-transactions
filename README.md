@@ -81,3 +81,4 @@ https://github.com/prisma/prisma/discussions/17928
 - https://www.prisma.io/docs/concepts/components/prisma-client/advanced-type-safety/operating-against-partial-structures-of-model-types#problem-using-variations-of-the-generated-model-type
 - https://www.prisma.io/docs/concepts/components/prisma-client/advanced-type-safety/prisma-validator#combining-prismavalidator-with-form-input
 - https://www.prisma.io/docs/concepts/components/prisma-client/advanced-type-safety/operating-against-partial-structures-of-model-types#problem-getting-access-to-the-return-type-of-a-function
+- https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy

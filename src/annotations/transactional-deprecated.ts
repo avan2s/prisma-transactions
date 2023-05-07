@@ -31,7 +31,7 @@ const fillArgs = (
  * @param options
  * @returns
  */
-export const Transactional = (options: TransactionOptions) => {
+export const TransactionalDeprecated = (options: TransactionOptions) => {
   return (
     target: object,
     propertyKey: string,

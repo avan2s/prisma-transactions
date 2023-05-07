@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { ITransactionManager } from "./transaction-manager.interface";
 
-export type Propagation =
+export type TransactionPropagation =
   | "REQUIRED"
   | "REQUIRES_NEW"
   | "SUPPORTS"
@@ -10,7 +10,8 @@ export type Propagation =
   | "NEVER";
 
 export interface TransactionOptions {
-  propagationType: Propagation;
+  propagationType: TransactionPropagation;
   txManager?: ITransactionManager;
-  prismaClient: Omit<PrismaClient, "$use">;
+  txTimeout?: number;
+  // prismaClient: Omit<PrismaClient, "$use">;
 }

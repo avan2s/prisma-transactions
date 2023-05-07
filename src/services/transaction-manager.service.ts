@@ -1,7 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 import { ITransactionManager } from "../interfaces/transaction-manager.interface";
-import { TransactionContextStore } from "./transaction-context-store";
+import {
+  TransactionContext,
+  TransactionContextStore,
+} from "./transaction-context-store";
 
 export type IPrismaClient = Omit<PrismaClient, "$use">;
 
@@ -14,7 +17,7 @@ export class TransactionManager implements ITransactionManager {
     private transactionContextStore = TransactionContextStore.getInstance()
   ) {}
 
-  private getTransactionContext(): string | undefined {
+  private getTransactionContext(): TransactionContext | undefined {
     return this.transactionContextStore.getTransactionContext();
   }
 
@@ -40,15 +43,7 @@ export class TransactionManager implements ITransactionManager {
     if (!context) {
       return undefined;
     }
-    return this.transactionContextToDbClient.get(context);
-  }
-
-  private deleteTransaction() {
-    const context = this.getTransactionContext();
-    if (!context) {
-      return true;
-    }
-    return this.transactionContextToDbClient.delete(context);
+    return undefined;
   }
 
   private generateRandomTransactionNumber() {

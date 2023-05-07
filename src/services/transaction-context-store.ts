@@ -1,6 +1,15 @@
 import { AsyncLocalStorage } from "async_hooks";
+import { FlatTransactionClient } from "./prisma-tx-client-extension";
+import { TransactionOptions } from "../interfaces/transaction-options";
+
+export interface TransactionContext {
+  txClient?: FlatTransactionClient;
+  options: TransactionOptions;
+  txTimeout: number;
+}
+
 export class TransactionContextStore {
-  private transactionContextStore = new AsyncLocalStorage<string>();
+  private transactionContextStore = new AsyncLocalStorage<TransactionContext>();
 
   private static instance: TransactionContextStore;
 
@@ -14,7 +23,11 @@ export class TransactionContextStore {
     return TransactionContextStore.instance;
   }
 
-  public getTransactionContext(): string | undefined {
+  public run(context: TransactionContext, callback: () => Promise<void>) {
+    return this.transactionContextStore.run(context, callback);
+  }
+
+  public getTransactionContext(): TransactionContext | undefined {
     return this.transactionContextStore.getStore();
   }
 }

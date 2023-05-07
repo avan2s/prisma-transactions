@@ -1,1 +1,1 @@
-export { Transactional } from "./annotations/transactional";
+export { TransactionalDeprecated as Transactional } from "./annotations/transactional-deprecated";
