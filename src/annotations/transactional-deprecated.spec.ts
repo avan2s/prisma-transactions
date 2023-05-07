@@ -1,7 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 
-import { Transactional } from "./transactional";
+import { Transactional } from "./transactional-deprecated";
 import txPrismaExtension from "../services/prisma-tx-client-extension";
 
 const prismaClient = new PrismaClient({
