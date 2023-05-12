@@ -1,4 +1,3 @@
-import { PrismaClient } from "@prisma/client";
 import { ITransactionManager } from "./transaction-manager.interface";
 
 export type TransactionPropagation =

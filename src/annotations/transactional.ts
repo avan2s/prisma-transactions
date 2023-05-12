@@ -63,8 +63,10 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
           result = await originalMethod.apply(this, args);
         } else {
           await runInNewTransactionContext({
-            options: { propagationType: propagationType },
-            txTimeout: 300000,
+            options: {
+              propagationType: propagationType,
+              txTimeout: options.txTimeout,
+            },
           });
         }
       } else if (propagationType === "SUPPORTS") {
@@ -82,8 +84,10 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
       } else if (propagationType === "REQUIRES_NEW") {
         // suspend the current transaction and create a complete new separate transaction, no matter if it is already running inside a transaction
         await runInNewTransactionContext({
-          options: { propagationType: propagationType },
-          txTimeout: 300000,
+          options: {
+            propagationType: propagationType,
+            txTimeout: options.txTimeout,
+          },
           txClient: undefined,
         });
       } else if (propagationType === "MANDATORY") {

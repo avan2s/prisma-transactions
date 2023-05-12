@@ -2,6 +2,8 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { TransactionManager } from "./transaction-manager.service";
 import { TransactionContextStore } from "./transaction-context-store";
 import { FlatTransactionClient } from "./prisma-tx-client-extension";
+import { TransactionForPropagationRequiredException } from "../exceptions/transaction-for-propagation-required-exception";
+import { TransactionForPropagationNotSupportedException } from "../exceptions/transaction-for-propagation-not-supported-exception";
 
 export class MyPrismaClient extends PrismaClient {
   constructor(
@@ -37,28 +39,27 @@ export class MyPrismaClient extends PrismaClient {
             _this[modelPropertyName][functionName],
             {
               apply(target, thisArg, args) {
-                console.log(functionName);
                 const txContext =
                   TransactionContextStore.getInstance().getTransactionContext();
 
+                console.log(Object.keys(_this));
                 if (txContext) {
                   const txOptions = txContext.options;
                   const propagationType = txOptions?.propagationType;
                   const txClient = txContext?.txClient;
                   const isRunningInTransaction = !!txClient;
-                  if (propagationType === "REQUIRED") {
-                    if (isRunningInTransaction) {
-                      const tx = txClient as { [key: string]: any };
-                      const newThisArg = tx[modelPropertyName];
-                      // const newThisArg = (txClient as { [key: string]: any })[
-                      //   modelPropertyName
-                      // ];
 
-                      return tx[modelPropertyName][functionName].apply(
-                        newThisArg,
-                        args
-                      );
-                    }
+                  const applyMethodInExistingTransaction = () => {
+                    const tx = txClient as { [key: string]: any };
+                    const newThisArg = tx[modelPropertyName];
+
+                    return tx[modelPropertyName][functionName].apply(
+                      newThisArg,
+                      args
+                    );
+                  };
+
+                  const applyInNewTransaction = () => {
                     return _this
                       .$begin()
                       .then((txClient: FlatTransactionClient) => {
@@ -73,9 +74,43 @@ export class MyPrismaClient extends PrismaClient {
                         }
                         return target.apply(thisArg, args);
                       });
+                  };
+
+                  if (propagationType === "REQUIRED") {
+                    if (isRunningInTransaction) {
+                      return applyMethodInExistingTransaction();
+                    } else {
+                      return applyInNewTransaction();
+                    }
+                  } else if (propagationType === "REQUIRES_NEW") {
+                    // suspend the current transaction and create a complete new separate transaction, no matter if it is already running inside a transaction
+                    return applyInNewTransaction();
+                  } else if (propagationType === "MANDATORY") {
+                    if (!isRunningInTransaction) {
+                      throw new TransactionForPropagationRequiredException(
+                        txOptions.propagationType
+                      );
+                    }
+                    return applyMethodInExistingTransaction();
+                  } else if (propagationType === "SUPPORTS") {
+                    if (isRunningInTransaction) {
+                      return applyMethodInExistingTransaction();
+                    }
+                    return target.apply(thisArg, args);
+                  } else if (propagationType === "NEVER") {
+                    if (isRunningInTransaction) {
+                      throw new TransactionForPropagationNotSupportedException(
+                        propagationType
+                      );
+                    }
+                  } else if (propagationType === "NOT_SUPPORTED") {
+                    return target.apply(thisArg, args);
+                  } else {
+                    throw new TransactionForPropagationNotSupportedException(
+                      propagationType
+                    );
                   }
                 }
-
                 return target.apply(thisArg, args);
               },
             }

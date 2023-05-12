@@ -5,7 +5,6 @@ import { TransactionOptions } from "../interfaces/transaction-options";
 export interface TransactionContext {
   txClient?: FlatTransactionClient;
   options: TransactionOptions;
-  txTimeout: number;
 }
 
 export class TransactionContextStore {
