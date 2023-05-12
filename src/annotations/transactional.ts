@@ -1,4 +1,3 @@
-import { PrismaClient } from "@prisma/client";
 import "reflect-metadata";
 import { TransactionForPropagationNotSupportedException } from "../exceptions/transaction-for-propagation-not-supported-exception";
 import { TransactionForPropagationRequiredException } from "../exceptions/transaction-for-propagation-required-exception";
