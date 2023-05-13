@@ -23,7 +23,7 @@ describe("async local storage - learning tests", () => {
     runDatabaseTransaction("context2");
   });
 
-  it.only("example usage AsyncLocalStorage non primitive type", async () => {
+  it("example usage AsyncLocalStorage non primitive type", async () => {
     interface Foo {
       name: string;
       age: number;
