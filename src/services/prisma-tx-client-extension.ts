@@ -8,7 +8,7 @@ export type FlatTransactionClient = Prisma.TransactionClient & {
 
 const ROLLBACK = { [Symbol.for("prisma.client.extension.rollback")]: true };
 
-const txPrismaExtension = {
+export default Prisma.defineExtension({
   client: {
     async $begin() {
       const prisma = Prisma.getExtensionContext(this);
@@ -34,7 +34,7 @@ const txPrismaExtension = {
       ) {
         const tx = prisma
           .$transaction(
-            (txClient: Prisma.TransactionClient & { txId: string }) => {
+            (txClient: Prisma.TransactionClient) => {
               setTxClient(txClient);
               return txPromise;
             },
@@ -71,6 +71,4 @@ const txPrismaExtension = {
       throw new Error("Transactions are not supported by this client");
     },
   },
-};
-
-export default txPrismaExtension;
+});
