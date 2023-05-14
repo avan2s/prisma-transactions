@@ -15,7 +15,7 @@ const getModelPropertyNames = () => {
   });
 };
 
-export const proxyModelFunctions = (prismaClient: object) => {
+const proxyModelFunctions = (prismaClient: object) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const _prismaClient = prismaClient as { [key: string]: any };
   getModelPropertyNames().forEach((modelPropertyName) => {
