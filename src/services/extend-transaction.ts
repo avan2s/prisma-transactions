@@ -5,7 +5,6 @@ export const extendTransaction = (tx: Prisma.TransactionClient) => {
     get(target, prop) {
       if (prop === "$transaction") {
         return async (func: any) => {
-          console.log(func);
           return func(tx);
         };
       }

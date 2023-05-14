@@ -1,14 +1,10 @@
 import "reflect-metadata";
-import { TransactionForPropagationNotSupportedException } from "../exceptions/transaction-for-propagation-not-supported-exception";
-import { TransactionForPropagationRequiredException } from "../exceptions/transaction-for-propagation-required-exception";
 import {
-  TransactionOptions,
-  TransactionPropagation,
-} from "../interfaces/transaction-options";
-import {
-  TransactionContext,
-  TransactionContextStore,
-} from "../services/transaction-context-store";
+  TransactionForPropagationNotSupportedException,
+  TransactionForPropagationRequiredException,
+} from "../exceptions";
+import { TransactionContext, TransactionContextStore } from "../services";
+import { TransactionOptions, TransactionPropagation } from "../interfaces";
 
 const defaultOptions: TransactionOptions = {
   propagationType: "REQUIRED",
