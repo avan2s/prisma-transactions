@@ -1,7 +1,9 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { TransactionContextStore } from "./transaction-context-store";
 import { TransactionForPropagationNotSupportedException } from "../exceptions/transaction-for-propagation-not-supported-exception";
-import { FlatTransactionClient } from "./prisma-tx-client-extension";
+import txPrismaExtension, {
+  FlatTransactionClient,
+} from "./prisma-tx-client-extension";
 import { TransactionForPropagationRequiredException } from "../exceptions/transaction-for-propagation-required-exception";
 
 const prismaClient = new PrismaClient({
@@ -14,7 +16,7 @@ const prismaClient = new PrismaClient({
       emit: "event",
     },
   ],
-});
+}).$extends(txPrismaExtension);
 
 const getModels = () => {
   return Prisma.dmmf.datamodel.models;

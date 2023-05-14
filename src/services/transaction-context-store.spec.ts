@@ -1,9 +1,8 @@
-import { Prisma } from "@prisma/client";
+import { FlatTransactionClient } from "./prisma-tx-client-extension";
 import {
   TransactionContext,
   TransactionContextStore,
 } from "./transaction-context-store";
-import { FlatTransactionClient } from "./prisma-tx-client-extension";
 
 describe("test transaction context store", () => {
   it("should receive singleton instance", () => {
@@ -42,6 +41,7 @@ describe("test transaction context store", () => {
       expect(newContext.txClient).toBeDefined();
     });
 
+    // test if its waiting for the whole run before proceeding
     expect(newContext.txClient).toBeDefined();
   });
 });

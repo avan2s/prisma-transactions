@@ -1,7 +1,10 @@
 import "reflect-metadata";
 import { TransactionForPropagationNotSupportedException } from "../exceptions/transaction-for-propagation-not-supported-exception";
 import { TransactionForPropagationRequiredException } from "../exceptions/transaction-for-propagation-required-exception";
-import { TransactionOptions } from "../interfaces/transaction-options";
+import {
+  TransactionOptions,
+  TransactionPropagation,
+} from "../interfaces/transaction-options";
 import {
   TransactionContext,
   TransactionContextStore,
@@ -32,74 +35,88 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
     }
 
     descriptor.value = async function (...args: unknown[]) {
-      const txContextStore = TransactionContextStore.getInstance();
-      const txClient = txContextStore.getTransactionContext()?.txClient;
-      const isRunningInTransaction = !!txClient;
-      const propagationType = options.propagationType;
-      let result = null;
+      const annotationPropagationType = options.propagationType;
 
-      const runInExistingTransactionContext = async () => {
-        result = await originalMethod.apply(this, args);
-      };
+      const txContextStore = TransactionContextStore.getInstance();
+      let txContext = txContextStore.getTransactionContext();
+
+      validateTransactionPropagation(txContext, annotationPropagationType);
+
+      const isRunningInTransactionBeforeMethodCall = !!txContext?.txClient;
 
       const runInNewTransactionContext = async (
         context: TransactionContext
       ) => {
         // Set the current context using the AsyncLocalStorage instance
         await txContextStore.run(context, async () => {
-          try {
-            result = await originalMethod.apply(this, args);
-          } catch (err) {
-            txClient?.$rollback();
+          // in this method, the context.txClient will be set in case the propgation type is defining this
+          result = await originalMethod.apply(this, args);
+          const isCommittable =
+            annotationPropagationType === "REQUIRES_NEW" ||
+            (!isRunningInTransactionBeforeMethodCall &&
+              annotationPropagationType === "REQUIRED");
+
+          // context.txClient is now expected to be set
+          if (context.txClient && isCommittable) {
+            await context.txClient.$commit();
+          } else if (
+            !isRunningInTransactionBeforeMethodCall &&
+            annotationPropagationType === "REQUIRED"
+          ) {
+            throw Error(
+              `Unable to commit transaction for propgation ${annotationPropagationType} - no commitable transaction client was found in the TransactionContext. Make sure you use the prisma client methods in this annotated method. Otherwise remove the ${Transactional.name} annotation`
+            );
           }
-          await txClient?.$commit();
         });
       };
 
-      if (propagationType === "REQUIRED") {
-        if (isRunningInTransaction) {
-          await runInExistingTransactionContext();
-          // reuse the current prisma client
-          result = await originalMethod.apply(this, args);
-        } else {
-          await runInNewTransactionContext({
-            options: {
-              propagationType: propagationType,
-              txTimeout: options.txTimeout,
-            },
-          });
-        }
-      } else if (propagationType === "SUPPORTS") {
-        // reuse the current prisma client nevertheless it is running inside a transation or not
-        // NOTE: that prisma creates a transaction automatically for create and update operations, because nested create statements should run in a single transaction. This way prisma ensures consitenccy
-        result = await originalMethod.apply(this, args);
-      } else if (propagationType === "NEVER") {
-        if (isRunningInTransaction) {
-          throw new TransactionForPropagationNotSupportedException(
-            propagationType
-          );
-        }
-        // use db client without any transactional behaviour
-        result = await originalMethod.apply(this, args);
-      } else if (propagationType === "REQUIRES_NEW") {
-        // suspend the current transaction and create a complete new separate transaction, no matter if it is already running inside a transaction
-        await runInNewTransactionContext({
+      let result = null;
+
+      if (
+        !txContext ||
+        annotationPropagationType !== txContext.options.propagationType
+      ) {
+        // a transaction context holds information about the transaction context with all its options
+        // this is created for all propagation types to ensure later that the prismaclient model functions
+        // will have a running context to decide, if a transaction client has to be created or reused
+        // if the propagation of a nested method is different a new transaction context is created in the child call
+        txContext = {
+          txClient: txContext?.txClient,
           options: {
-            propagationType: propagationType,
+            propagationType: annotationPropagationType,
             txTimeout: options.txTimeout,
           },
-          txClient: undefined,
-        });
-      } else if (propagationType === "MANDATORY") {
-        if (!isRunningInTransaction) {
-          throw new TransactionForPropagationRequiredException(propagationType);
-        }
-        await runInExistingTransactionContext();
+          isReadyToApply: false,
+        };
+
+        await runInNewTransactionContext(txContext);
+      } else {
+        // run in existing context. The prisma model proxy methods will know what to do by transaction context information and their txClients
+        result = await originalMethod.apply(this, args);
       }
+
       if (result === null || result !== void 0) {
         return result;
       }
     };
     return descriptor;
   };
+};
+
+const validateTransactionPropagation = (
+  txContext: TransactionContext | undefined,
+  propagation: TransactionPropagation
+) => {
+  const isRunningInTransactionBeforeMethodCall = !!txContext?.txClient;
+  const propagationType = propagation;
+  if (isRunningInTransactionBeforeMethodCall && propagationType === "NEVER") {
+    throw new TransactionForPropagationNotSupportedException(propagationType);
+  }
+
+  if (
+    !isRunningInTransactionBeforeMethodCall &&
+    propagationType === "MANDATORY"
+  ) {
+    throw new TransactionForPropagationRequiredException(propagationType);
+  }
 };

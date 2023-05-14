@@ -5,6 +5,7 @@ import { TransactionOptions } from "../interfaces/transaction-options";
 export interface TransactionContext {
   txClient?: FlatTransactionClient;
   options: TransactionOptions;
+  isReadyToApply: boolean;
 }
 
 export class TransactionContextStore {
