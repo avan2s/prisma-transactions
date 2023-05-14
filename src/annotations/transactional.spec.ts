@@ -1,9 +1,11 @@
 import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 
-import txPrismaExtension from "../services/prisma-tx-client-extension";
 import { Transactional } from "./transactional";
-import { proxyModelFunctions } from "../services/prisma-tx-propagation-extension";
-
+import {
+  prismaTxPropagationExtension,
+  proxyModelFunctions,
+} from "../services/prisma-tx-propagation-extension";
+import prismaTxClientExtension from "../services/prisma-tx-client-extension";
 function createPrismaTestClient() {
   const prisma = new PrismaClient({
     datasources: {
@@ -15,8 +17,9 @@ function createPrismaTestClient() {
         emit: "event",
       },
     ],
-  }).$extends(txPrismaExtension);
-  proxyModelFunctions(prisma);
+  })
+    .$extends(prismaTxClientExtension)
+    .$extends(prismaTxPropagationExtension);
   return prisma;
 }
 

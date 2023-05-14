@@ -54,11 +54,6 @@ export const proxyModelFunctions = (prismaClient: object) => {
                       newThisArg,
                       args
                     );
-                    // return Reflect.apply(
-                    //   tx[modelPropertyName][functionName],
-                    //   undefined,
-                    //   args
-                    // );
                   });
               };
 
@@ -106,7 +101,7 @@ export const proxyModelFunctions = (prismaClient: object) => {
                   );
                 } else {
                   // NOT_SUPPORTED,NEVER,SUPPORTS propagations accept to run in non transactional context
-                  return Reflect.apply(target, undefined, args);
+                  return target.apply(thisArg, args);
                 }
               }
             },
@@ -116,3 +111,8 @@ export const proxyModelFunctions = (prismaClient: object) => {
       });
   });
 };
+
+export const prismaTxPropagationExtension = Prisma.defineExtension((client) => {
+  proxyModelFunctions(client);
+  return client;
+});
