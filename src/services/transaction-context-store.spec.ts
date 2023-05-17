@@ -35,6 +35,7 @@ describe("test transaction context store", () => {
 
     const newContext: TransactionContext = {
       options: { propagationType: "REQUIRED" },
+      isReadyToApply: false,
     };
     await toTest.run(newContext, async () => {
       await beginTransaction();

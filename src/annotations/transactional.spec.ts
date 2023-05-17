@@ -29,15 +29,29 @@ export class TestClass {
   constructor(private prisma: IExtendedPrismaClient) {}
 
   @Transactional({ propagationType: "REQUIRED", txTimeout: 60000 })
-  public async requiredTest(user: AppUserWithoutId): Promise<AppUser> {
-    return this.prisma.appUser.create({
+  public async createUser(user: AppUserWithoutId): Promise<AppUser> {
+    const userResult = this.prisma.appUser.create({
       data: {
         firstname: user.firstname,
         lastname: user.lastname,
         email: user.email,
       },
     });
+    // this.createCloneForUser(user);
+
+    return userResult;
   }
+
+  // @Transactional({ propagationType: "REQUIRED", txTimeout: 60000 })
+  // public async createCloneForUser(user: AppUserWithoutId): Promise<AppUser> {
+  //   return this.prisma.appUser.create({
+  //     data: {
+  //       firstname: user.firstname + "2",
+  //       lastname: user.lastname,
+  //       email: user.email,
+  //     },
+  //   });
+  // }
 }
 
 describe("Transactional Integration Test", () => {
@@ -58,7 +72,7 @@ describe("Transactional Integration Test", () => {
       const queryEvents: Prisma.QueryEvent[] = [];
       prismaClient.$on("query", (event) => queryEvents.push(event));
 
-      await toTest.requiredTest({
+      await toTest.createUser({
         email: "foo@bar.de",
         firstname: "John",
         lastname: "Doe",
@@ -75,7 +89,7 @@ describe("Transactional Integration Test", () => {
       const queryEvents: Prisma.QueryEvent[] = [];
       prismaClient.$on("query", (event) => queryEvents.push(event));
 
-      await toTest.requiredTest({
+      await toTest.createUser({
         email: "foo@bar.de",
         firstname: "John",
         lastname: "Doe",

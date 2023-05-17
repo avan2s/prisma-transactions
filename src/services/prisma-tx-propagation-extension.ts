@@ -36,6 +36,7 @@ const proxyModelFunctions = (prismaClient: object) => {
                 // otherwise the prisma client can not make any transaction decisions what to do
                 // of course the transactional annotation is not a must have annotation - so if a method
                 // is not annotated with Tranactional, the client should behave as normal
+                // txConctext.isReadyToApply prevents endless loop, when new txClient is created, because txClient is also holding the proxied methods.
                 if (txContext) {
                   txContext.isReadyToApply = false;
                 }
