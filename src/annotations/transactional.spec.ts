@@ -3,6 +3,7 @@ import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 import { prismaTxPropagationExtension } from "../services/prisma-tx-propagation-extension";
 import { Transactional } from "./transactional";
 import prismaTxClientExtension from "../services/prisma-tx-client-extension";
+import { TransactionContextStore } from "../services";
 function createPrismaTestClient() {
   const prisma = new PrismaClient({
     datasources: {
@@ -120,7 +121,6 @@ describe("Transactional Integration Test", () => {
       const toTest = new TestClass(prismaClient);
       const queryEvents: Prisma.QueryEvent[] = [];
       prismaClient.$on("query", (event) => {
-        console.log(event.query);
         queryEvents.push(event);
       });
 
@@ -136,7 +136,7 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents[5].query).toBe("COMMIT");
     });
 
-    it(`should create two users in the same transaction with 2 calls from prisma client in the same method`, async () => {
+    it(`should create two users in the same transaction with 2 calls from prisma.user.create in the same method`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -149,8 +149,18 @@ describe("Transactional Integration Test", () => {
               email: "John.Doe@gmail.com",
             },
           });
-          console.log("create now juri");
+          const txContext =
+            TransactionContextStore.getInstance().getTransactionContext();
+          console.log(
+            `TestClass.call2 txClientId: ${txContext?.txClient?.txId}`
+          );
+          // console.log(txClient === txClient2);
 
+          if (txContext) {
+            txContext.isReadyToApply = false;
+          }
+
+          // await txContext?.txClient?.appUser.create({  // working
           await this.prisma.appUser.create({
             data: {
               firstname: "Juri",
@@ -163,20 +173,19 @@ describe("Transactional Integration Test", () => {
       const toTest = new TestClass(prismaClient);
       const queryEvents: Prisma.QueryEvent[] = [];
       prismaClient.$on("query", (event) => {
-        console.log(event.query);
         queryEvents.push(event);
       });
 
       await toTest.createUsers();
       console.log(queryEvents.map((e) => e.query));
 
-      expect(queryEvents.length).toBe(6);
       expect(queryEvents[0].query).toBe("BEGIN");
       expect(queryEvents[1].query).toContain("INSERT");
       expect(queryEvents[2].query).toContain("SELECT");
       expect(queryEvents[3].query).toContain("INSERT");
       expect(queryEvents[4].query).toContain("SELECT");
       expect(queryEvents[5].query).toBe("COMMIT");
+      expect(queryEvents.length).toBe(6);
     });
 
     it(`should execute both prisma client count calls in the same method inside the same transaction`, async () => {
@@ -192,7 +201,6 @@ describe("Transactional Integration Test", () => {
       const toTest = new TestClass(prismaClient);
       const queryEvents: Prisma.QueryEvent[] = [];
       prismaClient.$on("query", (event) => {
-        console.log(event.query);
         queryEvents.push(event);
       });
 

@@ -94,7 +94,9 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
           isReadyToApply: false,
         };
 
-        console.log(`@Transactional.runInNewTransaction ${txContext.txId}`);
+        console.log(
+          `@Transactional.runInNewTransactionContext ${txContext.txId}`
+        );
         await runInNewTransactionContext(txContext);
       } else {
         // run in existing context. The prisma model proxy methods will know what to do by transaction context information and their txClients

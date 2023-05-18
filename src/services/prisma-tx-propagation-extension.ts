@@ -27,7 +27,7 @@ const createProxyHandlerForFunction = (
         TransactionContextStore.getInstance().getTransactionContext();
 
       console.log(
-        `proxy.${modelPropertyName}.${functionName} in context: ${txContext?.txId} - txClientId: ${txContext?.txClient?.txId}`
+        `proxy.${modelPropertyName}.${functionName} in context: ${txContext?.txId} - txClientId: ${txContext?.txClient?.txId} `
       );
       if (!txContext || txContext.isReadyToApply) {
         // a Transactional annotation must create a new transaction context in each case
@@ -38,6 +38,12 @@ const createProxyHandlerForFunction = (
         // if (txContext) {
         //   txContext.isReadyToApply = false;
         // }
+        // if (txContext && txContext.isReadyToApply) {
+        //   txContext.isReadyToApply = false;
+        // }
+        console.log(
+          `proxy.apply ${modelPropertyName}.${functionName} in context: ${txContext?.txId} - txClientId = ${txContext?.txClient?.txId}`
+        );
         return target.apply(thisArg, args);
       }
       const isRunningInTransaction = !!txContext?.txClient;
