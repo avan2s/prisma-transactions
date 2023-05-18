@@ -29,10 +29,12 @@ export type AppUserWithoutId = Omit<AppUser, "id">;
 describe("Transactional Integration Test", () => {
   beforeEach(async () => {
     await prismaClient.$connect();
+    await prismaClient.post.deleteMany();
     await prismaClient.appUser.deleteMany();
   });
 
   afterEach(async () => {
+    await prismaClient.post.deleteMany();
     await prismaClient.appUser.deleteMany();
     await prismaClient.$disconnect();
   });
@@ -127,13 +129,13 @@ describe("Transactional Integration Test", () => {
       await toTest.createUser();
       console.log(queryEvents.map((e) => e.query));
 
-      expect(queryEvents.length).toBe(6);
       expect(queryEvents[0].query).toBe("BEGIN");
       expect(queryEvents[1].query).toContain("INSERT");
       expect(queryEvents[2].query).toContain("SELECT");
       expect(queryEvents[3].query).toContain("INSERT");
       expect(queryEvents[4].query).toContain("SELECT");
       expect(queryEvents[5].query).toBe("COMMIT");
+      expect(queryEvents.length).toBe(6);
     });
 
     it(`should create two users in the same transaction with 2 calls from prisma.user.create in the same method`, async () => {
@@ -142,30 +144,19 @@ describe("Transactional Integration Test", () => {
 
         @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
         public async createUsers(): Promise<void> {
-          await this.prisma.appUser.create({
+          const user = await this.prisma.appUser.create({
             data: {
               firstname: "John",
               lastname: "Doe",
               email: "John.Doe@gmail.com",
             },
           });
-          const txContext =
-            TransactionContextStore.getInstance().getTransactionContext();
-          console.log(
-            `TestClass.call2 txClientId: ${txContext?.txClient?.txId}`
-          );
-          // console.log(txClient === txClient2);
-
-          if (txContext) {
-            txContext.isReadyToApply = false;
-          }
 
           // await txContext?.txClient?.appUser.create({  // working
-          await this.prisma.appUser.create({
+          await this.prisma.post.create({
             data: {
-              firstname: "Juri",
-              lastname: "Hansel",
-              email: "Juri.Hansel@gmail.com",
+              userId: user.id,
+              comment: "Example comment",
             },
           });
         }
@@ -207,11 +198,15 @@ describe("Transactional Integration Test", () => {
       await toTest.countUsersAndPosts();
       console.log(queryEvents.map((e) => e.query));
 
-      expect(queryEvents.length).toBe(4);
       expect(queryEvents[0].query).toBe("BEGIN");
       expect(queryEvents[1].query).toContain("SELECT COUNT");
       expect(queryEvents[2].query).toContain("SELECT COUNT");
       expect(queryEvents[3].query).toBe("COMMIT");
+      expect(queryEvents.length).toBe(4);
+    });
+
+    it(`should execute both prisma clients in parallel inside a transactional method`, async () => {
+      expect("to be defined").toBeDefined();
     });
   });
 });

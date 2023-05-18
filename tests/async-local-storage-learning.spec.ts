@@ -57,4 +57,15 @@ describe("async local storage - learning tests", () => {
     });
     // runDatabaseTransaction("context2");
   });
+
+  it("return a value in async local storage", async () => {
+    const asyncLocalStorage = new AsyncLocalStorage<{ foo: string }>();
+
+    // Set the current context using the AsyncLocalStorage instance
+    const res = await asyncLocalStorage.run({ foo: "bar" }, async () => {
+      // Simulate a database operation
+      return "foo" + asyncLocalStorage.getStore()?.foo;
+    });
+    expect(res).toBe("foobar");
+  });
 });

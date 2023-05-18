@@ -38,7 +38,6 @@ export default Prisma.defineExtension({
             (txClient: Prisma.TransactionClient) => {
               const txId = uuidv4();
               (txClient as FlatTransactionClient).txId = txId;
-              console.log(`create transactionClient ${txId}`);
               setTxClient(txClient);
               return txPromise;
             },
@@ -53,7 +52,6 @@ export default Prisma.defineExtension({
         return new Proxy(await txClient, {
           get(target, prop) {
             if (prop === "$commit") {
-              console.log("proxy.commit called");
               return () => {
                 commit();
                 return tx;
