@@ -1,4 +1,14 @@
 -- CreateTable
+CREATE TABLE "app_user" (
+    "id" BIGSERIAL NOT NULL,
+    "firstname" TEXT NOT NULL,
+    "lastname" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+
+    CONSTRAINT "app_user_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "post" (
     "id" BIGSERIAL NOT NULL,
     "comment" TEXT NOT NULL,
