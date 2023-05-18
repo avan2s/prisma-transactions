@@ -3,6 +3,7 @@ import {
   TransactionContext,
   TransactionContextStore,
 } from "./transaction-context-store";
+import { v4 as uuidv4 } from "uuid";
 
 describe("test transaction context store", () => {
   it("should receive singleton instance", () => {
@@ -36,6 +37,7 @@ describe("test transaction context store", () => {
     const newContext: TransactionContext = {
       options: { propagationType: "REQUIRED" },
       isReadyToApply: false,
+      txId: uuidv4(),
     };
     await toTest.run(newContext, async () => {
       await beginTransaction();

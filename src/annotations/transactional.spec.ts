@@ -25,38 +25,7 @@ const prismaClient = createPrismaTestClient();
 
 export type AppUserWithoutId = Omit<AppUser, "id">;
 
-export class TestClass {
-  constructor(private prisma: IExtendedPrismaClient) {}
-
-  @Transactional({ propagationType: "REQUIRED", txTimeout: 60000 })
-  public async createUser(user: AppUserWithoutId): Promise<AppUser> {
-    const userResult = this.prisma.appUser.create({
-      data: {
-        firstname: user.firstname,
-        lastname: user.lastname,
-        email: user.email,
-      },
-    });
-    // this.createCloneForUser(user);
-
-    return userResult;
-  }
-
-  // @Transactional({ propagationType: "REQUIRED", txTimeout: 60000 })
-  // public async createCloneForUser(user: AppUserWithoutId): Promise<AppUser> {
-  //   return this.prisma.appUser.create({
-  //     data: {
-  //       firstname: user.firstname + "2",
-  //       lastname: user.lastname,
-  //       email: user.email,
-  //     },
-  //   });
-  // }
-}
-
 describe("Transactional Integration Test", () => {
-  const toTest = new TestClass(prismaClient);
-
   beforeEach(async () => {
     await prismaClient.appUser.deleteMany();
     await prismaClient.$connect();
@@ -68,7 +37,24 @@ describe("Transactional Integration Test", () => {
   });
 
   describe("REQUIRED test", () => {
-    it.only(`should create user inside a transactional context`, async () => {
+    it(`should create user inside a transactional context`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 60000 })
+        public async createUser(user: AppUserWithoutId): Promise<AppUser> {
+          const userResult = this.prisma.appUser.create({
+            data: {
+              firstname: user.firstname,
+              lastname: user.lastname,
+              email: user.email,
+            },
+          });
+
+          return userResult;
+        }
+      }
+      const toTest = new TestClass(prismaClient);
       const queryEvents: Prisma.QueryEvent[] = [];
       prismaClient.$on("query", (event) => queryEvents.push(event));
 
@@ -85,30 +71,112 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents[3].query).toBe("COMMIT");
     });
 
-    it.skip(`should attach to pre existing transaction propagation type REQUIRED`, async () => {
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => queryEvents.push(event));
+    it(`should execute $queryRaw inside transactional context`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
 
-      await toTest.createUser({
-        email: "foo@bar.de",
-        firstname: "John",
-        lastname: "Doe",
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 60000 })
+        public async select(): Promise<void> {
+          return this.prisma
+            .$queryRaw`INSERT into app_user(firstname, lastname,email) VALUES('Andy','Foo', 'Andy.Foo@gmail.com')`;
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      await toTest.select();
+
+      const user = await prismaClient.appUser.findFirstOrThrow({
+        select: { firstname: true },
       });
-      console.log(queryEvents);
+      expect(user.firstname).toBe("Andy");
+    });
 
-      expect(queryEvents.length).toBe(4);
+    it(`should attach to pre existing transaction`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
+        public async createUser(): Promise<void> {
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          await this.shouldAttachToExisting();
+        }
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async shouldAttachToExisting() {
+          await this.prisma.appUser.create({
+            data: {
+              firstname: `Peter`,
+              lastname: "Foo",
+              email: "Peter.Foo@gmail.com",
+            },
+          });
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        console.log(event.query);
+        queryEvents.push(event);
+      });
+
+      await toTest.createUser();
+      console.log(queryEvents.map((e) => e.query));
+
+      expect(queryEvents.length).toBe(6);
       expect(queryEvents[0].query).toBe("BEGIN");
       expect(queryEvents[1].query).toContain("INSERT");
       expect(queryEvents[2].query).toContain("SELECT");
-      expect(queryEvents[3].query).toBe("COMMIT");
+      expect(queryEvents[3].query).toContain("INSERT");
+      expect(queryEvents[4].query).toContain("SELECT");
+      expect(queryEvents[5].query).toBe("COMMIT");
+    });
 
-      // expect(queryEvents.length).toBe(6);
-      // expect(queryEvents[0].query).toBe("BEGIN");
-      // expect(queryEvents[1].query).toContain("INSERT");
-      // expect(queryEvents[2].query).toContain("SELECT");
-      // expect(queryEvents[3].query).toContain("INSERT");
-      // expect(queryEvents[4].query).toContain("SELECT");
-      // expect(queryEvents[5].query).toBe("COMMIT");
+    it.skip(`should execute both prisma client calls in the same method inside the same transaction`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
+        public async createUser(): Promise<void> {
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          console.log("create now juri");
+
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "Juri",
+              lastname: "Hansel",
+              email: "Juri.Hansel@gmail.com",
+            },
+          });
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        console.log(event.query);
+        queryEvents.push(event);
+      });
+
+      await toTest.createUser();
+      console.log(queryEvents.map((e) => e.query));
+
+      expect(queryEvents.length).toBe(6);
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("INSERT");
+      expect(queryEvents[2].query).toContain("SELECT");
+      expect(queryEvents[3].query).toContain("INSERT");
+      expect(queryEvents[4].query).toContain("SELECT");
+      expect(queryEvents[5].query).toBe("COMMIT");
     });
   });
 });

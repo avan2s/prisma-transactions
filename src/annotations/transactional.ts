@@ -5,6 +5,7 @@ import {
 } from "../exceptions";
 import { TransactionContext, TransactionContextStore } from "../services";
 import { TransactionOptions, TransactionPropagation } from "../interfaces";
+import { v4 as uuidv4 } from "uuid";
 
 const defaultOptions: TransactionOptions = {
   propagationType: "REQUIRED",
@@ -40,12 +41,19 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
 
       const isRunningInTransactionBeforeMethodCall = !!txContext?.txClient;
 
+      if (txContext) {
+        txContext.isReadyToApply = false;
+      }
+
       const runInNewTransactionContext = async (
         context: TransactionContext
       ) => {
         // Set the current context using the AsyncLocalStorage instance
         await txContextStore.run(context, async () => {
           // in this method, the context.txClient will be set in case the propgation type is defining this
+          // console.log(
+          //   `@Transactional.runInNewTransactionContext ${txContext?.txId}`
+          // );
           result = await originalMethod.apply(this, args);
           const isCommittable =
             annotationPropagationType === "REQUIRES_NEW" ||
@@ -77,6 +85,7 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
         // will have a running context to decide, if a transaction client has to be created or reused
         // if the propagation of a nested method is different a new transaction context is created in the child call
         txContext = {
+          txId: uuidv4(),
           txClient: txContext?.txClient,
           options: {
             propagationType: annotationPropagationType,
@@ -85,9 +94,14 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
           isReadyToApply: false,
         };
 
+        console.log(`@Transactional.runInNewTransaction ${txContext.txId}`);
         await runInNewTransactionContext(txContext);
       } else {
         // run in existing context. The prisma model proxy methods will know what to do by transaction context information and their txClients
+        // console.log(
+        //   `@Transactional.runInExistingTransactionContext ${txContext?.txId}`
+        // );
+        console.log(`@Transactional.runInExisting ${txContext.txId}`);
         result = await originalMethod.apply(this, args);
       }
 

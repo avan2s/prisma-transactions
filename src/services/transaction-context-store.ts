@@ -1,9 +1,11 @@
 import { AsyncLocalStorage } from "async_hooks";
-import { FlatTransactionClient } from "./prisma-tx-client-extension";
 import { TransactionOptions } from "../interfaces/transaction-options";
+import { FlatTransactionClient } from "./prisma-tx-client-extension";
 
 export interface TransactionContext {
+  txId: string;
   txClient?: FlatTransactionClient;
+  baseClient?: { [key: string]: any };
   options: TransactionOptions;
   isReadyToApply: boolean;
 }

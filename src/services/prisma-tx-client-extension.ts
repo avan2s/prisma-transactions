@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { v4 as uuidv4 } from "uuid";
 
 export type FlatTransactionClient = Prisma.TransactionClient & {
   $commit: () => Promise<void>;
@@ -35,6 +36,9 @@ export default Prisma.defineExtension({
         const tx = prisma
           .$transaction(
             (txClient: Prisma.TransactionClient) => {
+              const txId = uuidv4();
+              (txClient as FlatTransactionClient).txId = txId;
+              console.log(`create transactionClient ${txId}`);
               setTxClient(txClient);
               return txPromise;
             },
@@ -49,12 +53,14 @@ export default Prisma.defineExtension({
         return new Proxy(await txClient, {
           get(target, prop) {
             if (prop === "$commit") {
+              console.log("proxy.commit called");
               return () => {
                 commit();
                 return tx;
               };
             }
             if (prop === "$rollback") {
+              console.log("rollback called");
               return () => {
                 rollback();
                 return tx;
