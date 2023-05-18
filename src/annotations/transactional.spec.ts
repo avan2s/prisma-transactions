@@ -27,8 +27,8 @@ export type AppUserWithoutId = Omit<AppUser, "id">;
 
 describe("Transactional Integration Test", () => {
   beforeEach(async () => {
-    await prismaClient.appUser.deleteMany();
     await prismaClient.$connect();
+    await prismaClient.appUser.deleteMany();
   });
 
   afterEach(async () => {
@@ -136,12 +136,12 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents[5].query).toBe("COMMIT");
     });
 
-    it.skip(`should execute both prisma client calls in the same method inside the same transaction`, async () => {
+    it(`should create two users in the same transaction with 2 calls from prisma client in the same method`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
         @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
-        public async createUser(): Promise<void> {
+        public async createUsers(): Promise<void> {
           await this.prisma.appUser.create({
             data: {
               firstname: "John",
@@ -167,7 +167,7 @@ describe("Transactional Integration Test", () => {
         queryEvents.push(event);
       });
 
-      await toTest.createUser();
+      await toTest.createUsers();
       console.log(queryEvents.map((e) => e.query));
 
       expect(queryEvents.length).toBe(6);
@@ -177,6 +177,33 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents[3].query).toContain("INSERT");
       expect(queryEvents[4].query).toContain("SELECT");
       expect(queryEvents[5].query).toBe("COMMIT");
+    });
+
+    it(`should execute both prisma client count calls in the same method inside the same transaction`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
+        public async countUsersAndPosts(): Promise<void> {
+          await this.prisma.appUser.count();
+          await this.prisma.post.count();
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        console.log(event.query);
+        queryEvents.push(event);
+      });
+
+      await toTest.countUsersAndPosts();
+      console.log(queryEvents.map((e) => e.query));
+
+      expect(queryEvents.length).toBe(4);
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("SELECT COUNT");
+      expect(queryEvents[2].query).toContain("SELECT COUNT");
+      expect(queryEvents[3].query).toBe("COMMIT");
     });
   });
 });
