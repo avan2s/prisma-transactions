@@ -20,6 +20,37 @@ const getModelPropertyNames = () => {
   });
 };
 
+interface MethodContext {
+  isReadyToApply: boolean;
+}
+
+const runInExistingTransaction = (txData: {
+  methodContext?: MethodContext;
+  txContext?: TransactionContext;
+  functionName: string;
+  modelPropertyName?: string;
+  thisArg?: any;
+  args?: any;
+}) => {
+  const txContext = txData.txContext;
+  const modelPropertyName = txData.modelPropertyName;
+  const txClient = txContext?.txClient;
+  const thisArg = txData.thisArg;
+  const args = txData.args;
+  const methodContext = txData.methodContext;
+  const functionName = txData.functionName;
+  const tx = txClient as { [key: string]: any };
+  const newThisArg = modelPropertyName ? tx[modelPropertyName] : thisArg;
+  if (methodContext) {
+    methodContext.isReadyToApply = true;
+  }
+  if (modelPropertyName) {
+    return tx[modelPropertyName][functionName].apply(newThisArg, args);
+  } else {
+    return tx[functionName].apply(newThisArg, args);
+  }
+};
+
 const proxyMethodExecutionContext = new AsyncLocalStorage<{
   isReadyToApply: boolean;
 }>();
@@ -48,7 +79,7 @@ const createProxyHandlerForFunction = (
 
       const myLogic = async (
         txContext: TransactionContext,
-        methodContext?: { isReadyToApply: boolean }
+        methodContext?: MethodContext
       ) => {
         const isRunningInTransaction = !!txContext?.txClient;
         const propagationType = txContext.options.propagationType;
@@ -73,29 +104,20 @@ const createProxyHandlerForFunction = (
           });
         };
 
-        const runInExistingTransaction = () => {
-          const txClient = txContext?.txClient;
-          const tx = txClient as { [key: string]: any };
-          const newThisArg = modelPropertyName
-            ? tx[modelPropertyName]
-            : thisArg;
-          if (methodContext) {
-            methodContext.isReadyToApply = true;
-          }
-          if (modelPropertyName) {
-            return tx[modelPropertyName][functionName].apply(newThisArg, args);
-          } else {
-            return tx[functionName].apply(newThisArg, args);
-          }
-        };
-
         if (isRunningInTransaction) {
           if (
             propagationType === "REQUIRED" ||
             propagationType === "SUPPORTS" ||
             propagationType === "MANDATORY"
           ) {
-            return runInExistingTransaction();
+            return runInExistingTransaction({
+              functionName: functionName,
+              args: args,
+              methodContext: methodContext,
+              modelPropertyName: modelPropertyName,
+              thisArg: thisArg,
+              txContext: txContext,
+            });
           } else if (propagationType === "REQUIRES_NEW") {
             return runInNewTransaction();
           } else if (propagationType === "NOT_SUPPORTED") {
