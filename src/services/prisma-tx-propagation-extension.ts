@@ -173,7 +173,7 @@ const proxyModelFunctions = (prismaClient: object) => {
   getModelPropertyNames().forEach((modelPropertyName) => {
     Object.keys(_prismaClient[modelPropertyName])
       .filter(
-        (key) => _prismaClient[modelPropertyName][key] instanceof Function
+        (key) => typeof _prismaClient[modelPropertyName][key] === "function"
       )
       .forEach((functionName) => {
         _prismaClient[modelPropertyName][functionName] = new Proxy(
