@@ -7,7 +7,6 @@ export interface TransactionContext {
   txClient?: FlatTransactionClient;
   baseClient?: { [key: string]: any };
   options: PropagationTransactionOptions;
-  isReadyToApply: boolean;
 }
 
 export class TransactionContextStore {

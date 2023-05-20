@@ -41,14 +41,8 @@ export const Transactional = (
 
       const txContextStore = TransactionContextStore.getInstance();
       let txContext = txContextStore.getTransactionContext();
-
-      validateTransactionPropagation(txContext, annotationPropagationType);
-
       const isRunningInTransactionBeforeMethodCall = !!txContext?.txClient;
-
-      if (txContext) {
-        txContext.isReadyToApply = false;
-      }
+      validateTransactionPropagation(txContext, annotationPropagationType);
 
       const runInNewTransactionContext = async (
         context: TransactionContext
@@ -102,7 +96,6 @@ export const Transactional = (
             propagationType: annotationPropagationType,
             txTimeout: options.txTimeout,
           },
-          isReadyToApply: false,
         };
 
         //TODO: try to create a promise with a prisma client here, which will not wait

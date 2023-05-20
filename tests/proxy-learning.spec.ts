@@ -102,7 +102,7 @@ describe("proxy learning tests", () => {
           });
         } else if (prop === "getAsyncCiao") {
           return async (func: any) => {
-            console.log(func);
+            // console.log(func);
             return `changed ciao ${func}`;
           };
         } else {
@@ -175,7 +175,7 @@ describe("proxy learning tests", () => {
     expect(asyncCiao).toBe("changed ciao peter");
   });
 
-  it.only("get billing models", async () => {
+  it("get billing models", async () => {
     const prismaClient = new PrismaClient({
       datasources: {
         db: { url: "postgresql://postgres:postgres@localhost:6005/postgres" },

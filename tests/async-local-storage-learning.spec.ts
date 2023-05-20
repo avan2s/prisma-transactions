@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "async_hooks";
-import { type TransactionPropagation } from "../src/interfaces/transaction-options";
+import { type TransactionPropagation } from "../src/interfaces/propagation-transaction-options";
 
 describe("async local storage - learning tests", () => {
   it("example usage AsyncLocalStorage", () => {
@@ -7,14 +7,14 @@ describe("async local storage - learning tests", () => {
     const runDatabaseTransaction = async (context: string) => {
       // Set the current context using the AsyncLocalStorage instance
       asyncLocalStorage.run(context, async () => {
-        console.log(`Running database transaction with context: ${context}`);
+        // console.log(`Running database transaction with context: ${context}`);
         // Simulate a database operation
-        console.log(asyncLocalStorage.getStore());
+        // console.log(asyncLocalStorage.getStore());
         const nestedContext = context + "-nested";
         asyncLocalStorage.run(nestedContext, async () => {
-          console.log(asyncLocalStorage.getStore());
+          // console.log(asyncLocalStorage.getStore());
         });
-        console.log(asyncLocalStorage.getStore());
+        // console.log(asyncLocalStorage.getStore());
         await new Promise((resolve) => setTimeout(resolve, 1000));
       });
     };
@@ -37,14 +37,14 @@ describe("async local storage - learning tests", () => {
         { age: 12, name: "foo", propagationType: "REQUIRED" },
         async () => {
           // Simulate a database operation
-          console.log(asyncLocalStorage.getStore());
+          // console.log(asyncLocalStorage.getStore());
           const nestedContext = Object.assign(context, {
             name: context.name + "nested",
           });
           asyncLocalStorage.run(nestedContext, async () => {
-            console.log(asyncLocalStorage.getStore());
+            // console.log(asyncLocalStorage.getStore());
           });
-          console.log(asyncLocalStorage.getStore());
+          // console.log(asyncLocalStorage.getStore());
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       );

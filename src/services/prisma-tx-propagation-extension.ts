@@ -84,23 +84,25 @@ const createProxyHandlerForFunction = (
         const isRunningInTransaction = !!txContext?.txClient;
         const propagationType = txContext.options.propagationType;
         const runInNewTransaction = () => {
-          return _prismaClient.$begin().then((tx: { [key: string]: any }) => {
-            txContext.txClient = tx as FlatTransactionClient;
-            txContext.baseClient = _prismaClient;
-            if (methodContext) {
-              methodContext.isReadyToApply = true;
-            }
-            const newThisArg = modelPropertyName ? tx[modelPropertyName] : tx;
+          return _prismaClient
+            .$begin(txContext.options)
+            .then((tx: { [key: string]: any }) => {
+              txContext.txClient = tx as FlatTransactionClient;
+              txContext.baseClient = _prismaClient;
+              if (methodContext) {
+                methodContext.isReadyToApply = true;
+              }
+              const newThisArg = modelPropertyName ? tx[modelPropertyName] : tx;
 
-            if (modelPropertyName) {
-              return tx[modelPropertyName][functionName].apply(
-                newThisArg,
-                args
-              );
-            } else {
-              return tx[functionName].apply(newThisArg, args);
-            }
-          });
+              if (modelPropertyName) {
+                return tx[modelPropertyName][functionName].apply(
+                  newThisArg,
+                  args
+                );
+              } else {
+                return tx[functionName].apply(newThisArg, args);
+              }
+            });
         };
 
         if (isRunningInTransaction) {

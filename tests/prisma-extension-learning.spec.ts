@@ -33,7 +33,7 @@ describe("Prisma extension learning tests for general purposes", () => {
               [key: string]: any;
             };
             this as { [key: string]: any };
-            console.log(this);
+            // console.log(this);
             // this["findFirst"](x);
             return { firstname: "john", lastname: "" } as any;
           },
