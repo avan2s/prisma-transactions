@@ -112,23 +112,22 @@ describe("Transactional Integration Test", () => {
 
         @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
         public async createUser(): Promise<void> {
-          await this.prisma.appUser.create({
+          const user = await this.prisma.appUser.create({
             data: {
               firstname: "John",
               lastname: "Doe",
               email: "John.Doe@gmail.com",
             },
           });
-          await this.shouldAttachToExisting();
+          await this.createPost(user);
         }
 
         @Transactional({ propagationType: "REQUIRED" })
-        public async shouldAttachToExisting() {
-          await this.prisma.appUser.create({
+        public async createPost(user: AppUser) {
+          return await this.prisma.post.create({
             data: {
-              firstname: `Peter`,
-              lastname: "Foo",
-              email: "Peter.Foo@gmail.com",
+              comment: `comment 1`,
+              userId: user.id,
             },
           });
         }
@@ -149,6 +148,95 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents[4].query).toContain("SELECT");
       expect(queryEvents[5].query).toBe("COMMIT");
       expect(queryEvents.length).toBe(6);
+    });
+
+    it(`should create 1 user and 5 Posts in sequence in same transaction`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
+        public async createUser(): Promise<void> {
+          const user = await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          for (let i = 1; i <= 5; i++) {
+            await this.createPost(user, i);
+          }
+        }
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createPost(user: AppUser, n: number) {
+          return await this.prisma.post.create({
+            data: {
+              comment: `comment ${n}`,
+              userId: user.id,
+            },
+          });
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        queryEvents.push(event);
+      });
+
+      await toTest.createUser();
+      // console.log(queryEvents.map((e) => e.query));
+
+      expect(queryEvents[0].query).toBe("BEGIN");
+
+      const expectedNumberOfOperationsForInsert =
+        ["SELECT", "INSERT"].length * 6;
+      for (let i = 1; i <= expectedNumberOfOperationsForInsert; i += 2) {
+        expect(queryEvents[i].query).toContain("INSERT");
+        expect(queryEvents[i + 1].query).toContain("SELECT");
+      }
+
+      expect(queryEvents[13].query).toBe("COMMIT");
+      expect(queryEvents.length).toBe(14);
+    });
+
+    it.skip(`FIXME! should create 5 users in parallel`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createUsers(): Promise<void> {
+          const userPromises = Array.from({ length: 5 }, (_, i) => {
+            return this.prisma.appUser.create({
+              data: {
+                firstname: `John${i + 1}`,
+                lastname: "Doe",
+                email: `John${i + 1}.Doe@gmail.com`,
+              },
+            });
+          });
+
+          await Promise.all(userPromises);
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        queryEvents.push(event);
+      });
+
+      await toTest.createUsers();
+      const queries = queryEvents.map((e) => e.query);
+
+      expect(queries.filter((query) => query === "BEGIN").length).toBe(1);
+      expect(queries.filter((query) => query === "COMMIT").length).toBe(1);
+      expect(queries.filter((query) => query.includes("INSERT")).length).toBe(
+        5
+      );
+      expect(queries.filter((query) => query.includes("SELECT")).length).toBe(
+        5
+      );
+      // console.log(queryEvents.map((e) => e.query));
     });
 
     it(`should create two users in the same transaction with 2 calls from prisma.user.create in the same method`, async () => {
