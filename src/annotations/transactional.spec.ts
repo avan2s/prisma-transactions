@@ -205,7 +205,33 @@ describe("Transactional Integration Test", () => {
     });
 
     it(`should execute both prisma clients in parallel inside a transactional method`, async () => {
-      expect("to be defined").toBeDefined();
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 520000 })
+        public async countUsersAndPosts(): Promise<void> {
+          await this.prisma.appUser.count();
+          await this.prisma.post.count();
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        queryEvents.push(event);
+      });
+
+      for (let i = 0; i < 1000; i++) {
+        queryEvents.length = 0;
+
+        await toTest.countUsersAndPosts();
+
+        expect(queryEvents[0].query).toBe("BEGIN");
+        expect(queryEvents[1].query).toContain("SELECT COUNT");
+        expect(queryEvents[2].query).toContain("SELECT COUNT");
+        expect(queryEvents[3].query).toBe("COMMIT");
+        expect(queryEvents.length).toBe(4);
+      }
     });
   });
 });
