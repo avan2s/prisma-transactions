@@ -1,4 +1,4 @@
-import { TransactionPropagation } from "../interfaces/transaction-options";
+import { TransactionPropagation } from "../interfaces";
 
 export class TransactionForPropagationRequiredException extends Error {
   constructor(private propagation: TransactionPropagation) {

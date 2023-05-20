@@ -1,12 +1,12 @@
 import { AsyncLocalStorage } from "async_hooks";
-import { TransactionOptions } from "../interfaces/transaction-options";
 import { FlatTransactionClient } from "./prisma-tx-client-extension";
+import { PropagationTransactionOptions } from "../interfaces";
 
 export interface TransactionContext {
   txId: string;
   txClient?: FlatTransactionClient;
   baseClient?: { [key: string]: any };
-  options: TransactionOptions;
+  options: PropagationTransactionOptions;
   isReadyToApply: boolean;
 }
 
@@ -14,9 +14,6 @@ export class TransactionContextStore {
   private transactionContextStore = new AsyncLocalStorage<TransactionContext>();
 
   private static instance: TransactionContextStore;
-
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  private constructor() {}
 
   public static getInstance(): TransactionContextStore {
     if (!TransactionContextStore.instance) {

@@ -87,7 +87,6 @@ const createProxyHandlerForFunction = (
           return _prismaClient.$begin().then((tx: { [key: string]: any }) => {
             txContext.txClient = tx as FlatTransactionClient;
             txContext.baseClient = _prismaClient;
-            // txContext.isReadyToApply = true;
             if (methodContext) {
               methodContext.isReadyToApply = true;
             }

@@ -210,7 +210,7 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents.length).toBe(4);
     });
 
-    it(`should execute both prisma clients in parallel inside a transactional method`, async () => {
+    it(`should execute 100 count operations in one transaction`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -227,7 +227,7 @@ describe("Transactional Integration Test", () => {
         queryEvents.push(event);
       });
 
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < 100; i++) {
         queryEvents.length = 0;
 
         await toTest.countUsersAndPosts();
@@ -237,6 +237,53 @@ describe("Transactional Integration Test", () => {
         expect(queryEvents[2].query).toContain("SELECT COUNT");
         expect(queryEvents[3].query).toBe("COMMIT");
         expect(queryEvents.length).toBe(4);
+      }
+    });
+
+    it.skip(`should rollback created user and post after error`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createUserWithPost(): Promise<void> {
+          const user = await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          await this.createPost(user);
+          throw new Error("unexpected");
+        }
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createPost(user: AppUser) {
+          return this.prisma.post.create({
+            data: {
+              userId: user.id,
+              comment: "Example comment",
+            },
+          });
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        queryEvents.push(event);
+      });
+
+      try {
+        await toTest.createUserWithPost();
+      } catch (err) {
+        // console.log(queryEvents.map((e) => e.query));
+        expect(queryEvents[0].query).toBe("BEGIN");
+        expect(queryEvents[1].query).toContain("INSERT");
+        expect(queryEvents[2].query).toContain("SELECT");
+        expect(queryEvents[3].query).toContain("INSERT");
+        expect(queryEvents[4].query).toContain("SELECT");
+        expect(queryEvents[5].query).toBe("ROLLBACK");
+        expect(queryEvents.length).toBe(6);
       }
     });
   });

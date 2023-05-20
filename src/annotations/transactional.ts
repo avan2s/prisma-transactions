@@ -1,13 +1,16 @@
 import "reflect-metadata";
+import { v4 as uuidv4 } from "uuid";
 import {
   TransactionForPropagationNotSupportedException,
   TransactionForPropagationRequiredException,
 } from "../exceptions";
+import {
+  PropagationTransactionOptions,
+  TransactionPropagation,
+} from "../interfaces";
 import { TransactionContext, TransactionContextStore } from "../services";
-import { TransactionOptions, TransactionPropagation } from "../interfaces";
-import { v4 as uuidv4 } from "uuid";
 
-const defaultOptions: TransactionOptions = {
+const defaultOptions: PropagationTransactionOptions = {
   propagationType: "REQUIRED",
   txTimeout: 10000,
 };
@@ -16,7 +19,9 @@ const defaultOptions: TransactionOptions = {
  * @param options
  * @returns
  */
-export const Transactional = (options: TransactionOptions = defaultOptions) => {
+export const Transactional = (
+  options: PropagationTransactionOptions = defaultOptions
+) => {
   return (
     target: object,
     propertyKey: string,
@@ -51,10 +56,16 @@ export const Transactional = (options: TransactionOptions = defaultOptions) => {
         // Set the current context using the AsyncLocalStorage instance
         await txContextStore.run(context, async () => {
           // in this method, the context.txClient will be set in case the propgation type is defining this
-          // console.log(
-          //   `@Transactional.runInNewTransactionContext ${txContext?.txId}`
-          // );
-          result = await originalMethod.apply(this, args);
+          try {
+            result = await originalMethod.apply(this, args);
+          } catch (err) {
+            console.log("error occured");
+            if (txContext?.txClient) {
+              console.log(`rollback ${txContext.txClient.txId}`);
+              txContext.txClient.$rollback();
+            }
+            throw err;
+          }
           const isCommittable =
             annotationPropagationType === "REQUIRES_NEW" ||
             (!isRunningInTransactionBeforeMethodCall &&

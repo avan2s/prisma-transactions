@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
+import { TransactionOptions } from "../interfaces";
 
 export type FlatTransactionClient = Prisma.TransactionClient & {
   $commit: () => Promise<void>;
@@ -11,7 +12,7 @@ const ROLLBACK = { [Symbol.for("prisma.client.extension.rollback")]: true };
 
 export default Prisma.defineExtension({
   client: {
-    async $begin() {
+    async $begin(txOptions?: TransactionOptions) {
       const prisma = Prisma.getExtensionContext(this);
       let setTxClient: (txClient: Prisma.TransactionClient) => void;
       let commit: () => void;
@@ -38,10 +39,11 @@ export default Prisma.defineExtension({
             (txClient: Prisma.TransactionClient) => {
               const txId = uuidv4();
               (txClient as FlatTransactionClient).txId = txId;
+              // console.log("txClient created " + txId);
               setTxClient(txClient);
               return txPromise;
             },
-            { timeout: 300000 }
+            { timeout: txOptions?.txTimeout }
           )
           .catch((e: Error | { [x: symbol]: boolean }) => {
             if (e === ROLLBACK) return;
@@ -58,7 +60,6 @@ export default Prisma.defineExtension({
               };
             }
             if (prop === "$rollback") {
-              console.log("rollback called");
               return () => {
                 rollback();
                 return tx;
