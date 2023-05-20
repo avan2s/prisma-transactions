@@ -98,7 +98,7 @@ describe("Transactional Integration Test", () => {
       expect(user.firstname).toBe("Andy");
     });
 
-    it(`!should attach to pre existing transaction`, async () => {
+    it(`should attach to pre existing transaction`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -143,7 +143,7 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents.length).toBe(6);
     });
 
-    it(`!should create two users in the same transaction with 2 calls from prisma.user.create in the same method`, async () => {
+    it(`should create two users in the same transaction with 2 calls from prisma.user.create in the same method`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -184,7 +184,7 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents.length).toBe(6);
     });
 
-    it(`!should execute both prisma client count calls in the same method inside the same transaction`, async () => {
+    it(`should execute both prisma client count calls in the same method inside the same transaction`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -240,7 +240,7 @@ describe("Transactional Integration Test", () => {
       }
     });
 
-    it.skip(`should rollback created user and post after error`, async () => {
+    it.skip(`FIXME! should rollback created user and post after error`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -276,15 +276,51 @@ describe("Transactional Integration Test", () => {
       try {
         await toTest.createUserWithPost();
       } catch (err) {
-        // console.log(queryEvents.map((e) => e.query));
         expect(queryEvents[0].query).toBe("BEGIN");
         expect(queryEvents[1].query).toContain("INSERT");
         expect(queryEvents[2].query).toContain("SELECT");
         expect(queryEvents[3].query).toContain("INSERT");
         expect(queryEvents[4].query).toContain("SELECT");
+
+        // FIX ME: for some reason this is not fired as an event, but it is executed
+        // on database level
         expect(queryEvents[5].query).toBe("ROLLBACK");
         expect(queryEvents.length).toBe(6);
+
+        // console.log(queryEvents.map((e) => e.query));
+        expect(await prismaClient.post.count()).toBe(0);
+        expect(await prismaClient.appUser.count()).toBe(0);
       }
+    });
+
+    it.skip(`FIXME! should create user in transaction asynchronously without waiting`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createUserWithPost(): Promise<void> {
+          this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => {
+        queryEvents.push(event);
+      });
+
+      await toTest.createUserWithPost();
+      // console.log(queryEvents.map((e) => e.query));
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("INSERT");
+      expect(queryEvents[2].query).toContain("SELECT");
+      expect(queryEvents[5].query).toBe("COMMIT");
+      expect(queryEvents.length).toBe(6);
     });
   });
 });
