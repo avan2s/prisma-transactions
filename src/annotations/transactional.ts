@@ -53,9 +53,7 @@ export const Transactional = (
           try {
             result = await originalMethod.apply(this, args);
           } catch (err) {
-            console.log("error occured");
             if (txContext?.txClient) {
-              console.log(`rollback ${txContext.txClient.txId}`);
               txContext.txClient.$rollback();
             }
             throw err;

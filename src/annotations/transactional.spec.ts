@@ -26,6 +26,14 @@ const prismaClient = createPrismaTestClient();
 export type AppUserWithoutId = Omit<AppUser, "id">;
 
 describe("Transactional Integration Test", () => {
+  const wait = async (milliseconds: number) => {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, milliseconds);
+    });
+  };
+
   beforeAll(async () => {
     await prismaClient.$connect();
   });
@@ -210,7 +218,7 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents.length).toBe(4);
     });
 
-    it(`should execute 100 count operations in one transaction`, async () => {
+    it(`should execute 100 count operations in 50 sequential separate transactions`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -240,7 +248,7 @@ describe("Transactional Integration Test", () => {
       }
     });
 
-    it.skip(`FIXME! should rollback created user and post after error`, async () => {
+    it(`should rollback created user with post after error`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -282,12 +290,11 @@ describe("Transactional Integration Test", () => {
         expect(queryEvents[3].query).toContain("INSERT");
         expect(queryEvents[4].query).toContain("SELECT");
 
-        // FIX ME: for some reason this is not fired as an event, but it is executed
-        // on database level
+        // the rollback happens, but after the error is thrown and handled here. Wait for the rollback here
+        await wait(20);
         expect(queryEvents[5].query).toBe("ROLLBACK");
         expect(queryEvents.length).toBe(6);
 
-        // console.log(queryEvents.map((e) => e.query));
         expect(await prismaClient.post.count()).toBe(0);
         expect(await prismaClient.appUser.count()).toBe(0);
       }
