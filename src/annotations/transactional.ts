@@ -92,6 +92,7 @@ export const Transactional = (
         txContext = {
           txId: uuidv4(),
           txClient: txContext?.txClient,
+          baseClient: txContext?.baseClient,
           clientEventEmitter: new PrismaClientEventEmitter(),
           options: {
             propagationType: annotationPropagationType,

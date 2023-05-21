@@ -91,6 +91,7 @@ const createProxyHandlerForFunction = (
             (propagationType === "SUPPORTS" && isRunningInTransaction));
 
         if (isTxClientRequired && !!txContext.isTxClientInProgress) {
+          // handle parallel calls. The first one will emit the event. This makes sure same txClient is used
           txContext.txClient =
             await txContext.clientEventEmitter.waitForClientInstantiated(5000);
           txContext.isTxClientInProgress = false;
