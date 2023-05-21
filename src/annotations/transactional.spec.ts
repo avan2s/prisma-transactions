@@ -421,4 +421,38 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents.length).toBe(6);
     });
   });
+
+  describe("REQUIRES_NEW", () => {
+    it(`should create a user in new transaction`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRES_NEW" })
+        public async createUser(): Promise<AppUser> {
+          const userResult = this.prisma.appUser.create({
+            data: {
+              email: "foo@bar.de",
+              firstname: "John",
+              lastname: "Doe",
+            },
+          });
+
+          return userResult;
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => queryEvents.push(event));
+
+      await toTest.createUser();
+
+      // console.log(queryEvents.map((q) => q.query));
+
+      expect(queryEvents.length).toBe(4);
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("INSERT");
+      expect(queryEvents[2].query).toContain("SELECT");
+      expect(queryEvents[3].query).toBe("COMMIT");
+    });
+  });
 });

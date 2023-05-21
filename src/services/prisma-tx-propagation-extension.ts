@@ -20,7 +20,7 @@ const getModelPropertyNames = () => {
   });
 };
 
-interface MethodContext {
+export interface MethodContext {
   isReadyToApply: boolean;
 }
 
@@ -51,9 +51,7 @@ const runInExistingTransaction = (txData: {
   }
 };
 
-const proxyMethodExecutionContext = new AsyncLocalStorage<{
-  isReadyToApply: boolean;
-}>();
+const proxyMethodExecutionContext = new AsyncLocalStorage<MethodContext>();
 
 const createProxyHandlerForFunction = (
   _prismaClient: { [key: string]: any },
@@ -62,7 +60,7 @@ const createProxyHandlerForFunction = (
 ) => {
   const proxyHandler: ProxyHandler<(...args: any[]) => any> = {
     apply(target, thisArg, args) {
-      const methodContext = proxyMethodExecutionContext.getStore();
+      let methodContext = proxyMethodExecutionContext.getStore();
 
       // console.log(`${modelPropertyName}.${functionName} called`);
       const txContext =
@@ -79,7 +77,7 @@ const createProxyHandlerForFunction = (
 
       const getTargetMethod = async (
         txContext: TransactionContext,
-        methodContext?: MethodContext
+        methodContext: MethodContext
       ) => {
         let isRunningInTransaction = !!txContext?.txClient;
         const propagationType = txContext.options.propagationType;
@@ -109,9 +107,7 @@ const createProxyHandlerForFunction = (
                 txContext.txClient
               );
               txContext.baseClient = _prismaClient;
-              if (methodContext) {
-                methodContext.isReadyToApply = true;
-              }
+              methodContext.isReadyToApply = true;
               const newThisArg = modelPropertyName ? tx[modelPropertyName] : tx;
 
               if (modelPropertyName) {
@@ -174,14 +170,12 @@ const createProxyHandlerForFunction = (
         // each execution should start to run inside a separate context with its own isReadyToApplu
         // otherwise two prisma calls in the same @Transactional method will use different prisma Client, which results
         // for @Transactional("REQUIRED") inside a call to the base client - dont think about is recursive ding dong :D
-        return proxyMethodExecutionContext.run(
-          { isReadyToApply: false },
-          async () => {
-            return getTargetMethod(txContext, methodContext);
-          }
-        );
+        methodContext = { isReadyToApply: false };
+        return proxyMethodExecutionContext.run(methodContext, () => {
+          return getTargetMethod(txContext, methodContext as MethodContext);
+        });
       } else {
-        return getTargetMethod(txContext, methodContext);
+        return getTargetMethod(txContext, methodContext as MethodContext);
       }
     },
   };
