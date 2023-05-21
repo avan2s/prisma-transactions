@@ -1,15 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { FlatTransactionClient } from "./prisma-tx-client-extension";
-import {
-  TransactionContext,
-  TransactionContextStore,
-} from "./transaction-context-store";
+import { TransactionContextStore } from "./transaction-context-store";
 
 import { AsyncLocalStorage } from "async_hooks";
 import {
   TransactionForPropagationNotSupportedException,
   TransactionForPropagationRequiredException,
 } from "../exceptions";
+import { TransactionContext } from "../models";
 
 const getModels = () => {
   return Prisma.dmmf.datamodel.models;

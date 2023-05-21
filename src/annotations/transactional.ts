@@ -8,8 +8,9 @@ import {
   PropagationTransactionOptions,
   TransactionPropagation,
 } from "../interfaces";
-import { TransactionContext, TransactionContextStore } from "../services";
+import { TransactionContextStore } from "../services";
 import { PrismaClientEventEmitter } from "../services/prisma-client-event-emitter";
+import { TransactionContext } from "../models";
 
 const defaultOptions: PropagationTransactionOptions = {
   propagationType: "REQUIRED",
