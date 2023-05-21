@@ -9,6 +9,7 @@ import {
   TransactionPropagation,
 } from "../interfaces";
 import { TransactionContext, TransactionContextStore } from "../services";
+import { PrismaClientEventEmitter } from "../services/prisma-client-event-emitter";
 
 const defaultOptions: PropagationTransactionOptions = {
   propagationType: "REQUIRED",
@@ -90,6 +91,7 @@ export const Transactional = (
         txContext = {
           txId: uuidv4(),
           txClient: txContext?.txClient,
+          clientEventEmitter: new PrismaClientEventEmitter(),
           options: {
             propagationType: annotationPropagationType,
             txTimeout: options.txTimeout,

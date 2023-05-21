@@ -1,6 +1,4 @@
 import { Prisma } from "@prisma/client";
-import { TransactionForPropagationNotSupportedException } from "../exceptions/transaction-for-propagation-not-supported-exception";
-import { TransactionForPropagationRequiredException } from "../exceptions/transaction-for-propagation-required-exception";
 import { FlatTransactionClient } from "./prisma-tx-client-extension";
 import {
   TransactionContext,
@@ -8,6 +6,10 @@ import {
 } from "./transaction-context-store";
 
 import { AsyncLocalStorage } from "async_hooks";
+import {
+  TransactionForPropagationNotSupportedException,
+  TransactionForPropagationRequiredException,
+} from "../exceptions";
 
 const getModels = () => {
   return Prisma.dmmf.datamodel.models;
@@ -77,17 +79,36 @@ const createProxyHandlerForFunction = (
         return target.apply(thisArg, args);
       }
 
-      const myLogic = async (
+      const getTargetMethod = async (
         txContext: TransactionContext,
         methodContext?: MethodContext
       ) => {
-        const isRunningInTransaction = !!txContext?.txClient;
+        let isRunningInTransaction = !!txContext?.txClient;
         const propagationType = txContext.options.propagationType;
+        const isTxClientRequired =
+          !txContext.txClient &&
+          (propagationType === "REQUIRES_NEW" ||
+            propagationType === "REQUIRED" ||
+            propagationType === "MANDATORY" ||
+            (propagationType === "SUPPORTS" && isRunningInTransaction));
+
+        if (isTxClientRequired && !!txContext.isTxClientInProgress) {
+          txContext.txClient =
+            await txContext.clientEventEmitter.waitForClientInstantiated(5000);
+          txContext.isTxClientInProgress = false;
+          isRunningInTransaction = true;
+        } else if (isTxClientRequired) {
+          txContext.isTxClientInProgress = true;
+        }
+
         const runInNewTransaction = () => {
           return _prismaClient
             .$begin(txContext.options)
             .then((tx: { [key: string]: any }) => {
               txContext.txClient = tx as FlatTransactionClient;
+              txContext.clientEventEmitter.emitClientInstantiated(
+                txContext.txClient
+              );
               txContext.baseClient = _prismaClient;
               if (methodContext) {
                 methodContext.isReadyToApply = true;
@@ -157,11 +178,11 @@ const createProxyHandlerForFunction = (
         return proxyMethodExecutionContext.run(
           { isReadyToApply: false },
           async () => {
-            return myLogic(txContext, methodContext);
+            return getTargetMethod(txContext, methodContext);
           }
         );
       } else {
-        return myLogic(txContext, methodContext);
+        return getTargetMethod(txContext, methodContext);
       }
     },
   };
