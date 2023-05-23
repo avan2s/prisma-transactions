@@ -10,20 +10,12 @@ import { FlatTransactionClient, PrismaClientEventEmitter } from "../services";
 //   clientEventEmitter: PrismaClientEventEmitter;
 // }
 
-interface TransactionContextArgs {
-  txId: string;
-  txClient?: FlatTransactionClient;
-  options: PropagationTransactionOptions;
-  isTxClientInProgress?: boolean;
-  clientEventEmitter: PrismaClientEventEmitter;
-}
-
 export class TransactionContext {
-  txId: string;
-  txClient?: FlatTransactionClient;
-  options: PropagationTransactionOptions;
-  isTxClientInProgress?: boolean;
-  clientEventEmitter: PrismaClientEventEmitter;
+  private _txId: string;
+  private _txClient?: FlatTransactionClient;
+  private _options: PropagationTransactionOptions;
+  private _isTxClientInProgress?: boolean;
+  private _clientEventEmitter: PrismaClientEventEmitter;
 
   private constructor({
     txId,
@@ -32,11 +24,11 @@ export class TransactionContext {
     isTxClientInProgress,
     clientEventEmitter,
   }: TransactionContextArgs) {
-    this.txId = txId;
-    this.txClient = txClient;
-    this.options = options;
-    this.isTxClientInProgress = isTxClientInProgress;
-    this.clientEventEmitter = clientEventEmitter;
+    this._txId = txId;
+    this._txClient = txClient;
+    this._options = options;
+    this._isTxClientInProgress = isTxClientInProgress;
+    this._clientEventEmitter = clientEventEmitter;
   }
 
   public static forTransactionOptions(
@@ -58,4 +50,44 @@ export class TransactionContext {
       },
     });
   }
+
+  public takeTxClientInProgress() {
+    this._isTxClientInProgress = true;
+  }
+
+  public takeTxClientOffProgress(): void {
+    this._isTxClientInProgress = false;
+  }
+
+  public set txClient(txClient: FlatTransactionClient | undefined) {
+    this._txClient = txClient;
+  }
+
+  public get txClient(): FlatTransactionClient | undefined {
+    return this._txClient;
+  }
+
+  public get txId(): string {
+    return this._txId;
+  }
+
+  public get options(): PropagationTransactionOptions {
+    return this._options;
+  }
+
+  public get isTxClientInProgress(): boolean | undefined {
+    return this._isTxClientInProgress;
+  }
+
+  public get clientEventEmitter(): PrismaClientEventEmitter {
+    return this._clientEventEmitter;
+  }
+}
+
+interface TransactionContextArgs {
+  txId: string;
+  txClient?: FlatTransactionClient;
+  options: PropagationTransactionOptions;
+  isTxClientInProgress?: boolean;
+  clientEventEmitter: PrismaClientEventEmitter;
 }

@@ -28,7 +28,7 @@ describe("Prisma extension learning tests for general purposes", () => {
           ): Prisma.Result<T, A, "findFirst"> {
             // Override type safety here, because we cannot
             // predict the result types in advance.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
             const client = Prisma.getExtensionContext(this) as {
               [key: string]: any;
             };
@@ -53,6 +53,7 @@ describe("Prisma extension learning tests for general purposes", () => {
       ],
     }).$extends(extension);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const result = prismaClient.appUser.customCall({
       customProperty: true,
       where: {

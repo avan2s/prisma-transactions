@@ -1,8 +1,6 @@
 import { TransactionContext } from "../models";
-import { PrismaClientEventEmitter } from "./prisma-client-event-emitter";
 import { FlatTransactionClient } from "./prisma-tx-client-extension";
 import { TransactionContextStore } from "./transaction-context-store";
-import { v4 as uuidv4 } from "uuid";
 
 describe("test transaction context store", () => {
   it("should receive singleton instance", () => {
@@ -33,11 +31,9 @@ describe("test transaction context store", () => {
       });
     };
 
-    const newContext: TransactionContext = {
-      options: { propagationType: "REQUIRED" },
-      txId: uuidv4(),
-      clientEventEmitter: new PrismaClientEventEmitter(),
-    };
+    const newContext: TransactionContext =
+      TransactionContext.forTransactionOptions({ propagationType: "REQUIRED" });
+
     await toTest.run(newContext, async () => {
       await beginTransaction();
       expect(newContext.txClient).toBeDefined();
