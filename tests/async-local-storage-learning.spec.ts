@@ -68,4 +68,33 @@ describe("async local storage - learning tests", () => {
     });
     expect(res).toBe("foobar");
   });
+
+  it("test context after throwing exception`", () => {
+    const asyncLocalStorage = new AsyncLocalStorage<string>();
+    const runDatabaseTransaction = async (context: string) => {
+      // Set the current context using the AsyncLocalStorage instance
+      asyncLocalStorage.run(context, async () => {
+        // console.log(`Running database transaction with context: ${context}`);
+        // Simulate a database operation
+        console.log(context);
+        const nestedContext = context + "-nested";
+        try {
+          asyncLocalStorage
+            .run(nestedContext, async () => {
+              console.log(asyncLocalStorage.getStore());
+              throw new Error("some error");
+            })
+            .catch(() => {
+              console.log(context);
+            });
+        } catch (err) {
+          console.log(context);
+        }
+        // console.log(asyncLocalStorage.getStore());
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      });
+    };
+    // Call the function with two different contexts
+    runDatabaseTransaction("context1");
+  });
 });
