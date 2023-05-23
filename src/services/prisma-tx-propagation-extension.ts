@@ -106,7 +106,6 @@ const createProxyHandlerForFunction = (
               txContext.clientEventEmitter.emitClientInstantiated(
                 txContext.txClient
               );
-              txContext.baseClient = _prismaClient;
               methodContext.isReadyToApply = true;
               const newThisArg = modelPropertyName ? tx[modelPropertyName] : tx;
 

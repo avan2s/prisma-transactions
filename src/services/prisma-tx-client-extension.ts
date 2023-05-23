@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
-import { v4 as uuidv4 } from "uuid";
 import { TransactionOptions } from "../interfaces";
+import { TransactionContextStore } from "./transaction-context-store";
 
 export type FlatTransactionClient = Prisma.TransactionClient & {
   $commit: () => Promise<void>;
@@ -37,7 +37,9 @@ export default Prisma.defineExtension({
         const tx = prisma
           .$transaction(
             (txClient: Prisma.TransactionClient) => {
-              const txId = uuidv4();
+              const txId = ("client_" +
+                TransactionContextStore.getInstance().getTransactionContext()
+                  ?.txId) as string;
               (txClient as FlatTransactionClient).txId = txId;
               // console.log("txClient created " + txId);
               setTxClient(txClient);

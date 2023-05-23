@@ -1,5 +1,4 @@
 import "reflect-metadata";
-import { v4 as uuidv4 } from "uuid";
 import {
   TransactionForPropagationNotSupportedException,
   TransactionForPropagationRequiredException,
@@ -9,7 +8,6 @@ import {
   TransactionPropagation,
 } from "../interfaces";
 import { TransactionContextStore } from "../services";
-import { PrismaClientEventEmitter } from "../services/prisma-client-event-emitter";
 import { TransactionContext } from "../models";
 
 const defaultOptions: PropagationTransactionOptions = {
@@ -55,8 +53,8 @@ export const Transactional = (
           try {
             result = await originalMethod.apply(this, args);
           } catch (err) {
-            if (txContext?.txClient) {
-              txContext.txClient.$rollback();
+            if (context?.txClient) {
+              await context.txClient.$rollback();
             }
             throw err;
           }
@@ -83,28 +81,30 @@ export const Transactional = (
 
       if (
         !txContext ||
-        annotationPropagationType !== txContext.options.propagationType
+        annotationPropagationType !== txContext.options.propagationType ||
+        annotationPropagationType === "REQUIRES_NEW"
       ) {
         // a transaction context holds information about the transaction context with all its options
         // this is created for all propagation types to ensure later that the prismaclient model functions
         // will have a running context to decide, if a transaction client has to be created or reused
         // if the propagation of a nested method is different a new transaction context is created in the child call
-        txContext = {
-          txId: uuidv4(),
-          txClient: txContext?.txClient,
-          baseClient: txContext?.baseClient,
-          clientEventEmitter: new PrismaClientEventEmitter(),
-          options: {
-            propagationType: annotationPropagationType,
-            txTimeout: options.txTimeout,
-          },
-        };
+        txContext = TransactionContext.forTransactionOptions(
+          options,
+          txContext
+        ) as TransactionContext;
 
         //TODO: try to create a promise with a prisma client here, which will not wait
         await runInNewTransactionContext(txContext);
       } else {
         // run in existing context. The prisma model proxy methods will know what to do by transaction context information and their txClients
-        result = await originalMethod.apply(this, args);
+        try {
+          result = await originalMethod.apply(this, args);
+        } catch (err) {
+          if (txContext?.txClient) {
+            await txContext.txClient.$rollback();
+          }
+          throw err;
+        }
       }
 
       if (result === null || result !== void 0) {

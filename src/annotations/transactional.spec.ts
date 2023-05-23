@@ -382,7 +382,6 @@ describe("Transactional Integration Test", () => {
         expect(queryEvents[4].query).toContain("SELECT");
 
         // the rollback happens, but after the error is thrown and handled here. Wait for the rollback here
-        await wait(20);
         expect(queryEvents[5].query).toBe("ROLLBACK");
         expect(queryEvents.length).toBe(6);
 
@@ -453,6 +452,63 @@ describe("Transactional Integration Test", () => {
       expect(queryEvents[1].query).toContain("INSERT");
       expect(queryEvents[2].query).toContain("SELECT");
       expect(queryEvents[3].query).toBe("COMMIT");
+    });
+
+    it(`should rollback the first user but should keep the second created user in in new transaction`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRES_NEW", txTimeout: 120000 })
+        public async createUserWithAdditionalUser(): Promise<void> {
+          // this transaction we want to rollback
+          await this.prisma.appUser.create({
+            data: {
+              email: "foo@bar.de",
+              firstname: "John",
+              lastname: "Doe",
+            },
+          });
+          // this is executed in separate transaction and should be kept even after rollback
+          await this.createUserToKeep();
+
+          throw new Error("some error occured");
+        }
+
+        @Transactional({ propagationType: "REQUIRES_NEW", txTimeout: 120000 })
+        public async createUserToKeep(): Promise<AppUser> {
+          return this.prisma.appUser.create({
+            data: {
+              email: "to@keep.de",
+              firstname: "To",
+              lastname: "Keep",
+            },
+          });
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+      const queryEvents: Prisma.QueryEvent[] = [];
+      prismaClient.$on("query", (event) => queryEvents.push(event));
+
+      await toTest.createUserWithAdditionalUser().catch(async (err) => {
+        // console.log(queryEvents.map((q) => q.query));
+        expect(err.message).toBe("some error occured");
+        expect(queryEvents[0].query).toBe("BEGIN");
+        expect(queryEvents[1].query).toContain("INSERT");
+        expect(queryEvents[2].query).toContain("SELECT");
+
+        //  the new transaction to keep even when first transaction apply
+        expect(queryEvents[3].query).toBe("BEGIN");
+        expect(queryEvents[4].query).toContain("INSERT");
+        expect(queryEvents[5].query).toContain("SELECT");
+        expect(queryEvents[6].query).toBe("COMMIT");
+        expect(queryEvents[7].query).toBe("ROLLBACK");
+        expect(queryEvents.length).toBe(8);
+
+        expect(await prismaClient.appUser.count()).toBe(1);
+        const user = await prismaClient.appUser.findFirst();
+        expect(user?.firstname).toBe("To");
+        expect(user?.lastname).toBe("Keep");
+      });
     });
   });
 });
