@@ -4,6 +4,11 @@ import { FlatTransactionClient } from "./prisma-tx-client-extension";
 export class PrismaClientEventEmitter extends EventEmitter {
   private EVENT_INSTANTIATED = "clientInstantiated";
 
+  constructor() {
+    super();
+    // this.setMaxListeners();
+  }
+
   public subscribeToClientInstantiated(callbackHandler: () => void) {
     this.once(this.EVENT_INSTANTIATED, callbackHandler);
   }

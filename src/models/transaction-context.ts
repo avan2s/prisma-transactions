@@ -36,10 +36,11 @@ export class TransactionContext {
     currentContext?: TransactionContext
   ): TransactionContext {
     const propagationType =
-      currentContext?.options.propagationType || options.propagationType;
+      options.propagationType || currentContext?.options.propagationType;
     const client =
       propagationType === "REQUIRES_NEW" ? undefined : currentContext?.txClient;
-    const txTimeout = currentContext?.options?.txTimeout || 5000;
+    const txTimeout =
+      options.txTimeout || currentContext?.options?.txTimeout || 5000;
     return new TransactionContext({
       txId: uuidv4(),
       txClient: client,
