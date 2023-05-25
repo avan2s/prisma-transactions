@@ -49,6 +49,7 @@ describe("Transactional Integration Test", () => {
   afterEach(async () => {
     await prismaClient.post.deleteMany();
     await prismaClient.appUser.deleteMany();
+    queryEvents.splice(0, queryEvents.length);
   });
 
   describe("REQUIRED test", () => {
