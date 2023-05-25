@@ -25,14 +25,6 @@ export class PrismaClientEventEmitter extends EventEmitter {
         clearTimeout(timeout);
         resolve(client);
       });
-
-      // Print the number of listeners before returning the promise
-      // console.log(
-      //   `Number of listeners for '${
-      //     this.EVENT_INSTANTIATED
-      //   }': ${this.listenerCount(this.EVENT_INSTANTIATED)}`
-      // );
-      // console.log(new Error().stack);
     });
   }
 }
