@@ -21,26 +21,25 @@ function createPrismaTestClient() {
 }
 
 export type IExtendedPrismaClient = ReturnType<typeof createPrismaTestClient>;
-const prismaClient = createPrismaTestClient();
 
 export type AppUserWithoutId = Omit<AppUser, "id">;
 
 describe("Transactional Integration Test", () => {
-  const wait = async (milliseconds: number) => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, milliseconds);
-    });
-  };
+  const queryEvents: Prisma.QueryEvent[] = [];
+  const prismaClient = createPrismaTestClient();
 
   beforeAll(async () => {
     await prismaClient.$connect();
+
+    prismaClient.$on("query", (event) => {
+      queryEvents.push(event);
+    });
   });
 
   beforeEach(async () => {
     await prismaClient.post.deleteMany();
     await prismaClient.appUser.deleteMany();
+    queryEvents.splice(0, queryEvents.length);
   });
 
   afterAll(async () => {
@@ -71,8 +70,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => queryEvents.push(event));
 
       await toTest.createUser({
         email: "foo@bar.de",
@@ -133,10 +130,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       await toTest.createUser();
       // console.log(queryEvents.map((e) => e.query));
@@ -179,10 +172,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       await toTest.createUser();
       // console.log(queryEvents.map((e) => e.query));
@@ -221,10 +210,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       await toTest.createUsers();
       const queries = queryEvents.map((e) => e.query);
@@ -266,10 +251,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       await toTest.createUsers();
       // console.log(queryEvents.map((e) => e.query));
@@ -294,10 +275,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       await toTest.countUsersAndPosts();
       // console.log(queryEvents.map((e) => e.query));
@@ -320,11 +297,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       for (let i = 0; i < 100; i++) {
         queryEvents.length = 0;
@@ -367,10 +339,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       try {
         await toTest.createUserWithPost();
@@ -406,10 +374,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => {
-        queryEvents.push(event);
-      });
 
       await toTest.createUserWithPost();
       // console.log(queryEvents.map((e) => e.query));
@@ -440,8 +404,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => queryEvents.push(event));
 
       await toTest.createUser();
 
@@ -486,8 +448,6 @@ describe("Transactional Integration Test", () => {
         }
       }
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => queryEvents.push(event));
 
       await toTest.createUserWithAdditionalUser().catch(async (err) => {
         // console.log(queryEvents.map((q) => q.query));
@@ -544,8 +504,6 @@ describe("Transactional Integration Test", () => {
       }
 
       const toTest = new TestClass(prismaClient);
-      const queryEvents: Prisma.QueryEvent[] = [];
-      prismaClient.$on("query", (event) => queryEvents.push(event));
 
       await toTest.createUserWithAdditionalUser().catch(async (err) => {
         // console.log(queryEvents.map((q) => q.query));

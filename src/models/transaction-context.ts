@@ -41,15 +41,23 @@ export class TransactionContext {
       propagationType === "REQUIRES_NEW" ? undefined : currentContext?.txClient;
     const txTimeout =
       options.txTimeout || currentContext?.options?.txTimeout || 5000;
+    const eventEmitter =
+      propagationType === "REQUIRES_NEW"
+        ? new PrismaClientEventEmitter()
+        : currentContext?._clientEventEmitter || new PrismaClientEventEmitter();
     return new TransactionContext({
       txId: uuidv4(),
       txClient: client,
-      clientEventEmitter: new PrismaClientEventEmitter(),
+      clientEventEmitter: eventEmitter,
       options: {
         propagationType: propagationType,
         txTimeout: txTimeout,
       },
     });
+  }
+
+  public close() {
+    this.clientEventEmitter.removeAllListeners();
   }
 
   public takeTxClientInProgress() {
