@@ -598,4 +598,75 @@ describe("Transactional Integration Test", () => {
       });
     });
   });
+
+  describe("SUPPORTS", () => {
+    it("should run in a non transactional context", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "SUPPORTS" })
+        public async createAndFindUser(): Promise<AppUser> {
+          // create an app user via query Raw because prisma client will always create a transaction
+          await this.prisma.$queryRaw(
+            Prisma.sql`INSERT into app_user(firstname, lastname,email) VALUES('John','Doe', 'John.Doe@gmail.com')`
+          );
+          return await this.prisma.appUser.findFirstOrThrow();
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+
+      const user = await toTest.createAndFindUser();
+      // console.log(queryEvents.map((f) => f.query));
+      expect(queryEvents[0].query).toContain("INSERT");
+      expect(queryEvents[1].query).toContain("SELECT");
+      expect(queryEvents.length).toBe(2);
+      expect(user.firstname).toBe("John");
+    });
+
+    it("should attach to current transaction created by REQUIRED context", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createTwoUsers(): Promise<void> {
+          // create an app user via query Raw because prisma client will always create a transaction
+          await this.prisma.$queryRaw(
+            Prisma.sql`INSERT into app_user(firstname, lastname,email) VALUES('John','Doe', 'John.Doe@gmail.com')`
+          );
+          await this.createOtherUser();
+        }
+
+        @Transactional({ propagationType: "SUPPORTS" })
+        public async createOtherUser(): Promise<AppUser> {
+          // should not create separate transaction here, should appent to the required context
+          return this.prisma.appUser.create({
+            data: {
+              firstname: "Peter",
+              lastname: "Pan",
+              email: "Peter.Pan@gmail.com",
+            },
+          });
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+
+      await toTest.createTwoUsers();
+      // console.log(queryEvents.map((f) => f.query));
+      expect(queryEvents[0].query).toBe("BEGIN");
+      expect(queryEvents[1].query).toContain("INSERT");
+      // inside SUPPORT context it should attach to the current transaction
+      expect(queryEvents[2].query).toContain("INSERT");
+      expect(queryEvents[3].query).toContain("SELECT");
+
+      expect(queryEvents[4].query).toContain("COMMIT");
+      expect(queryEvents.length).toBe(5);
+
+      const users = await prismaClient.appUser.findMany();
+      expect(users[0].firstname).toBe("John");
+      expect(users[1].firstname).toBe("Peter");
+      expect(users.length).toBe(2);
+    });
+  });
 });
