@@ -528,7 +528,7 @@ describe("Transactional Integration Test", () => {
       });
     });
 
-    it.skip(`should rollback the first user in REQUIRED context but should keep 2 created users in REQUIRES NEW context`, async () => {
+    it(`should rollback the first user in REQUIRED context but should keep 2 created users in REQUIRES NEW context`, async () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
@@ -544,20 +544,19 @@ describe("Transactional Integration Test", () => {
           });
           // this is executed in separate transaction and should be kept even after rollback
           for (let i = 1; i <= 2; i++) {
-            console.log(i);
-            await this.createUserToKeep();
+            await this.createUserToKeep(i);
           }
 
           throw new Error("some error occured");
         }
 
         @Transactional({ propagationType: "REQUIRES_NEW", txTimeout: 120000 })
-        public async createUserToKeep(): Promise<AppUser> {
+        public async createUserToKeep(i: number): Promise<AppUser> {
           return this.prisma.appUser.create({
             data: {
               email: "to@keep.de",
               firstname: "To",
-              lastname: "Keep",
+              lastname: "Keep" + i,
             },
           });
         }
@@ -573,24 +572,29 @@ describe("Transactional Integration Test", () => {
         expect(queryEvents[2].query).toContain("SELECT");
 
         // REQUIRES_NEW transactions
-        expect(queryEvents[4].query).toBe("BEGIN");
-        expect(queryEvents[5].query).toContain("INSERT");
-        expect(queryEvents[6].query).toContain("SELECT");
-        expect(queryEvents[7].query).toContain("COMMIT");
+        expect(queryEvents[3].query).toBe("BEGIN");
+        expect(queryEvents[4].query).toContain("INSERT");
+        expect(queryEvents[5].query).toContain("SELECT");
+        expect(queryEvents[6].query).toContain("COMMIT");
 
-        expect(queryEvents[8].query).toBe("BEGIN");
-        expect(queryEvents[9].query).toContain("INSERT");
-        expect(queryEvents[10].query).toContain("SELECT");
-        expect(queryEvents[11].query).toBe("COMMIT");
+        expect(queryEvents[7].query).toBe("BEGIN");
+        expect(queryEvents[8].query).toContain("INSERT");
+        expect(queryEvents[9].query).toContain("SELECT");
+        expect(queryEvents[10].query).toBe("COMMIT");
 
         //  the new transaction to keep even when first transaction apply
-        expect(queryEvents[12].query).toBe("ROLLBACK");
-        expect(queryEvents.length).toBe(13);
+        expect(queryEvents[11].query).toBe("ROLLBACK");
+        expect(queryEvents.length).toBe(12);
 
-        expect(await prismaClient.appUser.count()).toBe(1);
-        const user = await prismaClient.appUser.findFirst();
-        expect(user?.firstname).toBe("To");
-        expect(user?.lastname).toBe("Keep");
+        expect(await prismaClient.appUser.count()).toBe(2);
+        const users = await prismaClient.appUser.findMany({
+          where: {
+            lastname: { in: ["Keep1", "Keep2"] },
+          },
+        });
+        expect(users[0]?.lastname).toBe("Keep1");
+        expect(users[1]?.lastname).toBe("Keep2");
+        expect(users.length).toBe(2);
       });
     });
   });
