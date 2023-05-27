@@ -28,6 +28,16 @@ describe("Transactional Integration Test", () => {
   const queryEvents: Prisma.QueryEvent[] = [];
   const prismaClient = createPrismaTestClient();
 
+  const verifyQueryEvents = (
+    events: Prisma.QueryEvent[],
+    expectedQuerys: string[]
+  ) => {
+    expectedQuerys.forEach((expectedQuery, i) => {
+      expect(events[i].query).toContain(expectedQuery);
+    });
+    expect(events.length).toBe(expectedQuerys.length);
+  };
+
   beforeAll(async () => {
     await prismaClient.$connect();
 
@@ -667,6 +677,57 @@ describe("Transactional Integration Test", () => {
       expect(users[0].firstname).toBe("John");
       expect(users[1].firstname).toBe("Peter");
       expect(users.length).toBe(2);
+    });
+
+    it("should rollback the transaction where the SUPPORTS context attach", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createTwoUsers(): Promise<void> {
+          // create an app user via query Raw because prisma client will always create a transaction
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          await this.createOtherUser();
+
+          throw new Error("unexpected");
+        }
+
+        @Transactional({ propagationType: "SUPPORTS" })
+        public async createOtherUser(): Promise<AppUser> {
+          // should not create separate transaction here, should appent to the required context
+          return this.prisma.appUser.create({
+            data: {
+              firstname: "Peter",
+              lastname: "Pan",
+              email: "Peter.Pan@gmail.com",
+            },
+          });
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+
+      await toTest.createTwoUsers().catch(async (err) => {
+        expect(err.message).toBe("unexpected");
+        // console.log(queryEvents.map((f) => f.query));
+        verifyQueryEvents(queryEvents, [
+          "BEGIN",
+          "INSERT",
+          "SELECT",
+          "INSERT",
+          "SELECT",
+          "ROLLBACK",
+        ]);
+
+        const users = await prismaClient.appUser.findMany();
+        expect(users.length).toBe(0);
+      });
     });
   });
 });
