@@ -1092,4 +1092,62 @@ describe("Transactional Integration Test", () => {
         });
     });
   });
+
+  describe("Multiple Service Use Cases", () => {
+    it("should rollback the user from UserService and the post from PostService from same transaction", async () => {
+      class PostService {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createPost(userId: bigint): Promise<void> {
+          // this will run in its own transaction
+          await this.prisma.post.create({
+            data: {
+              userId: userId,
+              comment: "my comment",
+            },
+          });
+        }
+      }
+      class UserService {
+        constructor(
+          private prisma: IExtendedPrismaClient,
+          private postService: PostService
+        ) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createUserWithPost(): Promise<void> {
+          // this will run in its own transaction
+          const user = await this.prisma.appUser.create({
+            data: {
+              firstname: "Andy",
+              lastname: "Foo",
+              email: "Andy.Foo@gmail.com",
+            },
+          });
+          await this.postService.createPost(user.id);
+          throw new Error("unexpected");
+        }
+      }
+
+      const postService = new PostService(prismaClient);
+      const userService = new UserService(prismaClient, postService);
+      await userService
+        .createUserWithPost()
+        .then(() => fail("error expected"))
+        .catch(async (err: Error) => {
+          expect(err.message).toBe("unexpected");
+          verifyQueryEvents(queryEvents, [
+            "BEGIN",
+            "INSERT",
+            "SELECT",
+            "INSERT",
+            "SELECT",
+            "ROLLBACK",
+          ]);
+          const users = await prismaClient.appUser.findMany();
+          expect(users.length).toBe(0);
+        });
+    });
+  });
 });
