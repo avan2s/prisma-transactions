@@ -3,6 +3,10 @@ import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 import prismaTxClientExtension from "../services/prisma-tx-client-extension";
 import { prismaTxPropagationExtension } from "../services/prisma-tx-propagation-extension";
 import { Transactional } from "./transactional";
+import {
+  PropagationTransactionOptions,
+  TransactionPropagation,
+} from "../interfaces";
 function createPrismaTestClient() {
   const prisma = new PrismaClient({
     datasources: {
@@ -685,7 +689,6 @@ describe("Transactional Integration Test", () => {
 
         @Transactional({ propagationType: "REQUIRED" })
         public async createTwoUsers(): Promise<void> {
-          // create an app user via query Raw because prisma client will always create a transaction
           await this.prisma.appUser.create({
             data: {
               firstname: "John",
@@ -727,6 +730,139 @@ describe("Transactional Integration Test", () => {
 
         const users = await prismaClient.appUser.findMany();
         expect(users.length).toBe(0);
+      });
+    });
+  });
+
+  describe("MANDATORY" as TransactionPropagation, () => {
+    it("should append to existing transaction context", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createTwoUsers(): Promise<void> {
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          await this.createOtherUser();
+        }
+
+        @Transactional({ propagationType: "MANDATORY" })
+        private async createOtherUser(): Promise<AppUser> {
+          return this.prisma.appUser.create({
+            data: {
+              firstname: "Peter",
+              lastname: "Pan",
+              email: "Peter.Pan@gmail.com",
+            },
+          });
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+      await toTest.createTwoUsers();
+      verifyQueryEvents(queryEvents, [
+        "BEGIN",
+        "INSERT",
+        "SELECT",
+        "INSERT",
+        "SELECT",
+        "COMMIT",
+      ]);
+    });
+
+    it("should rollback the whole transaction", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createTwoUsers(): Promise<void> {
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          await this.createOtherUser();
+        }
+
+        @Transactional({ propagationType: "MANDATORY" })
+        private async createOtherUser(): Promise<AppUser> {
+          const user = await this.prisma.appUser.create({
+            data: {
+              firstname: "Peter",
+              lastname: "Pan",
+              email: "Peter.Pan@gmail.com",
+            },
+          });
+
+          if (user) {
+            throw new Error("unexpected");
+          }
+          return user;
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+      await toTest.createTwoUsers().catch((err) => {
+        expect(err.message).toBe("unexpected");
+        verifyQueryEvents(queryEvents, [
+          "BEGIN",
+          "INSERT",
+          "SELECT",
+          "INSERT",
+          "SELECT",
+          "ROLLBACK",
+        ]);
+      });
+    });
+
+    it("should throw exception because there is no transaction, where it can append to", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        public async createTwoUsers(): Promise<void> {
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+          await this.createOtherUser();
+        }
+
+        @Transactional({ propagationType: "MANDATORY" })
+        private async createOtherUser(): Promise<AppUser> {
+          const user = await this.prisma.appUser.create({
+            data: {
+              firstname: "Peter",
+              lastname: "Pan",
+              email: "Peter.Pan@gmail.com",
+            },
+          });
+
+          if (user) {
+            throw new Error("unexpected");
+          }
+          return user;
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+      await toTest.createTwoUsers().catch(async (err) => {
+        verifyQueryEvents(queryEvents, ["BEGIN", "INSERT", "SELECT", "COMMIT"]);
+        expect(err.message).toBe(
+          "Transaction is required for propagation type MANDATORY"
+        );
+        const users = await prismaClient.appUser.findMany();
+        expect(users[0]?.firstname).toBe("John");
+        expect(users.length).toBe(1);
       });
     });
   });
