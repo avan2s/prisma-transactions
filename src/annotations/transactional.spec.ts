@@ -185,17 +185,14 @@ describe("Transactional Integration Test", () => {
       await toTest.createUser();
       // console.log(queryEvents.map((e) => e.query));
 
-      expect(queryEvents[0].query).toBe("BEGIN");
-
-      const expectedNumberOfOperationsForInsert =
-        ["SELECT", "INSERT"].length * 6;
-      for (let i = 1; i <= expectedNumberOfOperationsForInsert; i += 2) {
-        expect(queryEvents[i].query).toContain("INSERT");
-        expect(queryEvents[i + 1].query).toContain("SELECT");
+      const expectedOperations = ["BEGIN"];
+      for (let i = 0; i < 6; i++) {
+        expectedOperations.push("INSERT");
+        expectedOperations.push("SELECT");
       }
+      expectedOperations.push("COMMIT");
 
-      expect(queryEvents[13].query).toBe("COMMIT");
-      expect(queryEvents.length).toBe(14);
+      verifyQueryEvents(queryEvents, expectedOperations);
     });
 
     it(`should create 5 users in parallel inside same transaction`, async () => {
@@ -264,13 +261,14 @@ describe("Transactional Integration Test", () => {
       await toTest.createUsers();
       // console.log(queryEvents.map((e) => e.query));
 
-      expect(queryEvents[0].query).toBe("BEGIN");
-      expect(queryEvents[1].query).toContain("INSERT");
-      expect(queryEvents[2].query).toContain("SELECT");
-      expect(queryEvents[3].query).toContain("INSERT");
-      expect(queryEvents[4].query).toContain("SELECT");
-      expect(queryEvents[5].query).toBe("COMMIT");
-      expect(queryEvents.length).toBe(6);
+      verifyQueryEvents(queryEvents, [
+        "BEGIN",
+        "INSERT",
+        "SELECT",
+        "INSERT",
+        "SELECT",
+        "COMMIT",
+      ]);
     });
 
     it(`should execute both prisma client count calls in the same method inside the same transaction`, async () => {
@@ -288,11 +286,12 @@ describe("Transactional Integration Test", () => {
       await toTest.countUsersAndPosts();
       // console.log(queryEvents.map((e) => e.query));
 
-      expect(queryEvents[0].query).toBe("BEGIN");
-      expect(queryEvents[1].query).toContain("SELECT COUNT");
-      expect(queryEvents[2].query).toContain("SELECT COUNT");
-      expect(queryEvents[3].query).toBe("COMMIT");
-      expect(queryEvents.length).toBe(4);
+      verifyQueryEvents(queryEvents, [
+        "BEGIN",
+        "SELECT COUNT",
+        "SELECT COUNT",
+        "COMMIT",
+      ]);
     });
 
     it(`should execute 100 count operations in 50 sequential separate transactions`, async () => {
@@ -308,15 +307,17 @@ describe("Transactional Integration Test", () => {
       const toTest = new TestClass(prismaClient);
 
       for (let i = 0; i < 100; i++) {
+        // reset the query Events object
         queryEvents.length = 0;
 
         await toTest.countUsersAndPosts();
 
-        expect(queryEvents[0].query).toBe("BEGIN");
-        expect(queryEvents[1].query).toContain("SELECT COUNT");
-        expect(queryEvents[2].query).toContain("SELECT COUNT");
-        expect(queryEvents[3].query).toBe("COMMIT");
-        expect(queryEvents.length).toBe(4);
+        verifyQueryEvents(queryEvents, [
+          "BEGIN",
+          "SELECT COUNT",
+          "SELECT COUNT",
+          "COMMIT",
+        ]);
       }
     });
 
@@ -386,11 +387,7 @@ describe("Transactional Integration Test", () => {
 
       await toTest.createUserWithPost();
       // console.log(queryEvents.map((e) => e.query));
-      expect(queryEvents[0].query).toBe("BEGIN");
-      expect(queryEvents[1].query).toContain("INSERT");
-      expect(queryEvents[2].query).toContain("SELECT");
-      expect(queryEvents[5].query).toBe("COMMIT");
-      expect(queryEvents.length).toBe(6);
+      verifyQueryEvents(queryEvents, ["BEGIN", "INSERT", "SELECT", "COMMIT"]);
     });
   });
 
@@ -418,11 +415,7 @@ describe("Transactional Integration Test", () => {
 
       // console.log(queryEvents.map((q) => q.query));
 
-      expect(queryEvents.length).toBe(4);
-      expect(queryEvents[0].query).toBe("BEGIN");
-      expect(queryEvents[1].query).toContain("INSERT");
-      expect(queryEvents[2].query).toContain("SELECT");
-      expect(queryEvents[3].query).toBe("COMMIT");
+      verifyQueryEvents(queryEvents, ["BEGIN", "INSERT", "SELECT", "COMMIT"]);
     });
 
     it(`should rollback the first user in REQUIRES_NEW but should keep the second created user in in new transaction`, async () => {
@@ -464,17 +457,16 @@ describe("Transactional Integration Test", () => {
         .catch(async (err) => {
           // console.log(queryEvents.map((q) => q.query));
           expect(err.message).toBe("some error occured");
-          expect(queryEvents[0].query).toBe("BEGIN");
-          expect(queryEvents[1].query).toContain("INSERT");
-          expect(queryEvents[2].query).toContain("SELECT");
-
-          //  the new transaction to keep even when first transaction apply
-          expect(queryEvents[3].query).toBe("BEGIN");
-          expect(queryEvents[4].query).toContain("INSERT");
-          expect(queryEvents[5].query).toContain("SELECT");
-          expect(queryEvents[6].query).toBe("COMMIT");
-          expect(queryEvents[7].query).toBe("ROLLBACK");
-          expect(queryEvents.length).toBe(8);
+          verifyQueryEvents(queryEvents, [
+            "BEGIN",
+            "INSERT",
+            "SELECT",
+            "BEGIN", //  START - the new transaction to keep even when first transaction apply
+            "INSERT",
+            "SELECT",
+            "COMMIT", // END - the end of the separate transaction
+            "ROLLBACK",
+          ]);
 
           expect(await prismaClient.appUser.count()).toBe(1);
           const user = await prismaClient.appUser.findFirst();
@@ -523,17 +515,16 @@ describe("Transactional Integration Test", () => {
         .catch(async (err) => {
           // console.log(queryEvents.map((q) => q.query));
           expect(err.message).toBe("some error occured");
-          expect(queryEvents[0].query).toBe("BEGIN");
-          expect(queryEvents[1].query).toContain("INSERT");
-          expect(queryEvents[2].query).toContain("SELECT");
-
-          //  the new transaction to keep even when first transaction apply
-          expect(queryEvents[3].query).toBe("BEGIN");
-          expect(queryEvents[4].query).toContain("INSERT");
-          expect(queryEvents[5].query).toContain("SELECT");
-          expect(queryEvents[6].query).toBe("COMMIT");
-          expect(queryEvents[7].query).toBe("ROLLBACK");
-          expect(queryEvents.length).toBe(8);
+          verifyQueryEvents(queryEvents, [
+            "BEGIN",
+            "INSERT",
+            "SELECT",
+            "BEGIN",
+            "INSERT",
+            "SELECT",
+            "COMMIT",
+            "ROLLBACK",
+          ]);
 
           expect(await prismaClient.appUser.count()).toBe(1);
           const user = await prismaClient.appUser.findFirst();
@@ -584,25 +575,21 @@ describe("Transactional Integration Test", () => {
         .catch(async (err) => {
           // console.log(queryEvents.map((q) => q.query));
           expect(err.message).toBe("some error occured");
-          expect(queryEvents[0].query).toBe("BEGIN");
-          expect(queryEvents[1].query).toContain("INSERT");
-          expect(queryEvents[2].query).toContain("SELECT");
-
-          // REQUIRES_NEW transactions
-          expect(queryEvents[3].query).toBe("BEGIN");
-          expect(queryEvents[4].query).toContain("INSERT");
-          expect(queryEvents[5].query).toContain("SELECT");
-          expect(queryEvents[6].query).toContain("COMMIT");
-
-          expect(queryEvents[7].query).toBe("BEGIN");
-          expect(queryEvents[8].query).toContain("INSERT");
-          expect(queryEvents[9].query).toContain("SELECT");
-          expect(queryEvents[10].query).toBe("COMMIT");
-
+          verifyQueryEvents(queryEvents, [
+            "BEGIN", // start parent transaction
+            "INSERT",
+            "SELECT",
+            "BEGIN", // REQUIRES_NEW transaction 1
+            "INSERT",
+            "SELECT",
+            "COMMIT",
+            "BEGIN", // REQUIRES_NEW transaction 2
+            "INSERT",
+            "SELECT",
+            "COMMIT",
+            "ROLLBACK", // ROLLBACK parent transaction
+          ]);
           //  the new transaction to keep even when first transaction apply
-          expect(queryEvents[11].query).toBe("ROLLBACK");
-          expect(queryEvents.length).toBe(12);
-
           expect(await prismaClient.appUser.count()).toBe(2);
           const users = await prismaClient.appUser.findMany({
             where: {
@@ -635,9 +622,7 @@ describe("Transactional Integration Test", () => {
 
       const user = await toTest.createAndFindUser();
       // console.log(queryEvents.map((f) => f.query));
-      expect(queryEvents[0].query).toContain("INSERT");
-      expect(queryEvents[1].query).toContain("SELECT");
-      expect(queryEvents.length).toBe(2);
+      verifyQueryEvents(queryEvents, ["INSERT", "SELECT"]);
       expect(user.firstname).toBe("John");
     });
 
@@ -671,14 +656,13 @@ describe("Transactional Integration Test", () => {
 
       await toTest.createTwoUsers();
       // console.log(queryEvents.map((f) => f.query));
-      expect(queryEvents[0].query).toBe("BEGIN");
-      expect(queryEvents[1].query).toContain("INSERT");
-      // inside SUPPORT context it should attach to the current transaction
-      expect(queryEvents[2].query).toContain("INSERT");
-      expect(queryEvents[3].query).toContain("SELECT");
-
-      expect(queryEvents[4].query).toContain("COMMIT");
-      expect(queryEvents.length).toBe(5);
+      verifyQueryEvents(queryEvents, [
+        "BEGIN",
+        "INSERT",
+        "INSERT", // inside SUPPORT context it should attach to the current transaction
+        "SELECT",
+        "COMMIT",
+      ]);
 
       const users = await prismaClient.appUser.findMany();
       expect(users[0].firstname).toBe("John");
