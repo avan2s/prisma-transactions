@@ -55,6 +55,7 @@ export const Transactional = (
           } catch (err) {
             if (context?.txClient) {
               await context.txClient.$rollback();
+              context.close();
             }
             throw err;
           }
@@ -66,6 +67,7 @@ export const Transactional = (
           // context.txClient is now expected to be set
           if (context.txClient && isCommittable) {
             await context.txClient.$commit();
+            context.close();
           } else if (
             !isRunningInTransactionBeforeMethodCall &&
             annotationPropagationType === "REQUIRED"
@@ -102,6 +104,7 @@ export const Transactional = (
         } catch (err) {
           if (txContext?.txClient) {
             await txContext.txClient.$rollback();
+            txContext.close();
           }
           throw err;
         }

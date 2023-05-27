@@ -1,12 +1,9 @@
 import { AppUser, Prisma, PrismaClient } from "@prisma/client";
 
+import { TransactionPropagation } from "../interfaces";
 import prismaTxClientExtension from "../services/prisma-tx-client-extension";
 import { prismaTxPropagationExtension } from "../services/prisma-tx-propagation-extension";
 import { Transactional } from "./transactional";
-import {
-  PropagationTransactionOptions,
-  TransactionPropagation,
-} from "../interfaces";
 function createPrismaTestClient() {
   const prisma = new PrismaClient({
     datasources: {

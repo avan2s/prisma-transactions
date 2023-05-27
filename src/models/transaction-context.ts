@@ -57,7 +57,9 @@ export class TransactionContext {
   }
 
   public close() {
-    this.clientEventEmitter.removeAllListeners();
+    if (this.clientEventEmitter) {
+      this.clientEventEmitter.removeAllListeners();
+    }
   }
 
   public takeTxClientInProgress() {
