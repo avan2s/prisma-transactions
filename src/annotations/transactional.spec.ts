@@ -1036,4 +1036,76 @@ describe("Transactional Integration Test", () => {
         });
     });
   });
+
+  describe("NOT_SUPPORTED", () => {
+    it("should be executed in non transactional context, because transaction context is not supported", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "NOT_SUPPORTED" })
+        public async createUser(): Promise<void> {
+          // use $queryRaw instead of create because prisma client creates always a transaction for create statements
+          // in order not to confuse the developer here with BEGIN and COMMIT $queryRaw is used
+          return this.prisma
+            .$queryRaw`INSERT into app_user(firstname, lastname,email) VALUES('John','Doe', 'John.Doe@gmail.com')`;
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+      await toTest.createUser();
+      verifyQueryEvents(queryEvents, ["INSERT"]);
+      expect((await prismaClient.appUser.findFirstOrThrow()).lastname).toBe(
+        "Doe"
+      );
+    });
+
+    it("should suspend REQUIRED context and run in non transactional context - verify with error", async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createTwoUsers(): Promise<void> {
+          // this will run in its own transaction
+          await prismaClient.appUser.create({
+            data: {
+              firstname: "Andy",
+              lastname: "Foo",
+              email: "Andy.Foo@gmail.com",
+            },
+          });
+          await this.createUser();
+          throw new Error("unexpected");
+        }
+
+        @Transactional({ propagationType: "NOT_SUPPORTED" })
+        public async createUser(): Promise<void> {
+          // this method does not support transactions, but instead of NEVER it will not complain, just suspend the caller transaction
+          // use $queryRaw instead of create because prisma client creates always a transaction for create statements
+          // in order not to confuse the developer here with BEGIN and COMMIT $queryRaw is used
+          return this.prisma
+            .$queryRaw`INSERT into app_user(firstname, lastname,email) VALUES('John','Doe', 'John.Doe@gmail.com')`;
+        }
+      }
+
+      const toTest = new TestClass(prismaClient);
+      await toTest
+        .createTwoUsers()
+        .then(() => fail("error expected"))
+        .catch(async (err: Error) => {
+          expect(err.message).toBe("unexpected");
+          verifyQueryEvents(queryEvents, [
+            "BEGIN",
+            "INSERT",
+            "SELECT",
+            "INSERT",
+            "ROLLBACK",
+          ]);
+          const users = await prismaClient.appUser.findMany();
+          // NOT SUPPORTED context is not affected by the roleback, it does not support transactions
+          // and therefore the created record in the NOT_SUPPORTED context is not affected by the error
+          expect(users.length).toBe(1);
+          expect(users[0].lastname).toBe("Doe");
+        });
+    });
+  });
 });
