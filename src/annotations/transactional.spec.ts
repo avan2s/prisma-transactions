@@ -4,6 +4,8 @@ import { TransactionPropagation } from "../interfaces";
 import prismaTxClientExtension from "../services/prisma-tx-client-extension";
 import { prismaTxPropagationExtension } from "../services/prisma-tx-propagation-extension";
 import { Transactional } from "./transactional";
+import { EventEmitter } from "events";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 function createPrismaTestClient() {
   const prisma = new PrismaClient({
     datasources: {
@@ -1148,6 +1150,65 @@ describe("Transactional Integration Test", () => {
           const users = await prismaClient.appUser.findMany();
           expect(users.length).toBe(0);
         });
+    });
+  });
+
+  describe("expected non working use cases", () => {
+    it("transaction already closed when running setTimeout callback without waiting", async () => {
+      class UserService {
+        constructor(
+          private prisma: IExtendedPrismaClient,
+          private eventEmitter = new EventEmitter()
+        ) {}
+
+        public on(
+          event: string,
+          listener: (arg: PrismaClientKnownRequestError) => void
+        ): void {
+          this.eventEmitter.on(event, listener);
+        }
+
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 500 })
+        public async createUserWithPost(): Promise<void> {
+          // this will run in its own transaction
+          await this.prisma.appUser.create({
+            data: {
+              firstname: "Andy",
+              lastname: "Foo",
+              email: "Andy.Foo@gmail.com",
+            },
+          });
+
+          setTimeout(async () => {
+            await this.prisma.appUser
+              .create({
+                data: {
+                  firstname: "Peter",
+                  lastname: "Pan",
+                  email: "Peter.Pan@gmail.com",
+                },
+              })
+              .catch((err) => {
+                // this is an expected error
+                this.eventEmitter.emit(
+                  "error",
+                  err as PrismaClientKnownRequestError
+                );
+              });
+          }, 550);
+        }
+      }
+      const toTest = new UserService(prismaClient);
+      const errorPromise = new Promise((resolve, reject) => {
+        toTest.on("error", (err) => {
+          reject(err);
+        });
+      });
+
+      await toTest.createUserWithPost();
+      await errorPromise.catch((err) => {
+        expect(err.meta?.error).toContain("Transaction already closed");
+      });
     });
   });
 });
