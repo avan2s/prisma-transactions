@@ -6,6 +6,12 @@
   "scripts": {
     "test:watch": "jest -i --verbose --config jest-unit.json --watch",
     "test": "jest -i --verbose --config jest-unit.json",
+    "pretest": "npm run db:start",
+    "pretest:watch": "npm run db:start",
+    "posttest": "npm run db:stop",
+    "posttest:watch": "npm run db:stop",
+    "db:start": "docker compose up -d && npx prisma migrate deploy",
+    "db:stop": "docker compose down -v",
     "test:int": "jest -i --no-cache --config jest-int.json --verbose --detectOpenHandles",
     "lint": "eslint 'src/**/*.{ts,tsx}' --fix",
     "lint:test": "eslint 'src/**/*.{ts,tsx}'",
