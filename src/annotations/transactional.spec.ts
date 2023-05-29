@@ -369,28 +369,6 @@ describe("Transactional Integration Test", () => {
           expect(await prismaClient.appUser.count()).toBe(0);
         });
     });
-
-    it.skip(`FIXME! should create user in transaction asynchronously without waiting`, async () => {
-      class TestClass {
-        constructor(private prisma: IExtendedPrismaClient) {}
-
-        @Transactional({ propagationType: "REQUIRED" })
-        public async createUserWithPost(): Promise<void> {
-          this.prisma.appUser.create({
-            data: {
-              firstname: "John",
-              lastname: "Doe",
-              email: "John.Doe@gmail.com",
-            },
-          });
-        }
-      }
-      const toTest = new TestClass(prismaClient);
-
-      await toTest.createUserWithPost();
-      // console.log(queryEvents.map((e) => e.query));
-      verifyQueryEvents(queryEvents, ["BEGIN", "INSERT", "SELECT", "COMMIT"]);
-    });
   });
 
   describe("REQUIRES_NEW", () => {
@@ -1153,7 +1131,7 @@ describe("Transactional Integration Test", () => {
     });
   });
 
-  describe("expected non working use cases", () => {
+  describe("expected non working use cases - using this library", () => {
     it("transaction already closed when running setTimeout callback without waiting", async () => {
       class UserService {
         constructor(
@@ -1208,6 +1186,31 @@ describe("Transactional Integration Test", () => {
       await toTest.createUserWithPost();
       await errorPromise.catch((err) => {
         expect(err.meta?.error).toContain("Transaction already closed");
+      });
+    });
+
+    it(`FIXME! should create user in transaction asynchronously without waiting`, async () => {
+      class TestClass {
+        constructor(private prisma: IExtendedPrismaClient) {}
+
+        @Transactional({ propagationType: "REQUIRED" })
+        public async createUserWithPost(): Promise<void> {
+          // NOTE: you do not wait - so the method will finish and the REQUIRED context will close the transaction
+          this.prisma.appUser.create({
+            data: {
+              firstname: "John",
+              lastname: "Doe",
+              email: "John.Doe@gmail.com",
+            },
+          });
+        }
+      }
+      const toTest = new TestClass(prismaClient);
+
+      await toTest.createUserWithPost().catch((err: Error) => {
+        expect(err.message).toContain(
+          "Make sure that the end of the method represents a finished state of the transactional database operations"
+        );
       });
     });
   });

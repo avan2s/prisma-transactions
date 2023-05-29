@@ -73,7 +73,7 @@ export const Transactional = (
             annotationPropagationType === "REQUIRED"
           ) {
             throw Error(
-              `Unable to commit transaction for propgation ${annotationPropagationType} - no commitable transaction client was found in the TransactionContext. Make sure you use the prisma client methods in this annotated method. Otherwise remove the ${Transactional.name} annotation`
+              `Unable to commit transaction for propgation ${annotationPropagationType} - no commitable transaction client was found in the TransactionContext. Make sure that the end of the method represents a finished state of the transactional database operations. Often this is caused by missing await statemtns inside the annotated method. Otherwise remove the ${Transactional.name} annotation`
             );
           }
         });
