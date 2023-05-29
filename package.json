@@ -11,7 +11,7 @@
     "posttest": "npm run db:stop",
     "posttest:watch": "npm run db:stop",
     "db:start": "docker compose up -d && npx prisma migrate deploy",
-    "db:stop": "docker compose down -v",
+    "db:stop": "docker compose rm -s -f -v",
     "test:int": "jest -i --no-cache --config jest-int.json --verbose --detectOpenHandles",
     "lint": "eslint 'src/**/*.{ts,tsx}' --fix",
     "lint:test": "eslint 'src/**/*.{ts,tsx}'",
