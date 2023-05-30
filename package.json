@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
+  "publishConfig": {
+    "registry": "http://localhost:4873"
+  },
   "scripts": {
+    "build": "tsc",
     "test:watch": "jest -i --verbose --config jest-unit.json --watch",
     "test": "jest -i --verbose --config jest-unit.json",
     "pretest": "npm run db:start",
@@ -37,8 +41,10 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
-    "@prisma/client": "^4.14.1",
     "reflect-metadata": "^0.1.13",
     "uuid": "^9.0.0"
+  },
+  "peerDependencies": {
+    "@prisma/client": "^4.12.0"
   }
 }

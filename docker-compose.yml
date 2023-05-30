@@ -25,5 +25,12 @@ services:
       postgres: 
         condition: service_healthy
 
+  npm-registry:
+    image: verdaccio/verdaccio
+    ports:
+      - 4873:4873
+    volumes:
+      - ./config/config.yaml:/verdaccio/conf/config.yaml:ro
+
 volumes:
   postgres-data:
