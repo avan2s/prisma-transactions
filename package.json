@@ -1,5 +1,5 @@
 {
-  "name": "prisma-transactions",
+  "name": "prisma-extension-transactional-propagation",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
@@ -22,7 +22,7 @@
     "db:log": "docker compose logs -f | grep -E 'SELECT|COMMIT|BEGIN|INSERT|DELETE|ROLLBACK'"
   },
   "keywords": [],
-  "author": "",
+  "author": "Andreas v.H.",
   "license": "ISC",
   "devDependencies": {
     "@faker-js/faker": "^7.6.0",
