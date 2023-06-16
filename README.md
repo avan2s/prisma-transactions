@@ -25,11 +25,13 @@ class UserService {
                     lastname: "Doe",
                     email: "John.Doe@gmail.com",
                 },
-            }));
-        // Here you must pass the txClient in order to make sure
-        // both operations are running inside the same transaction
-        // UGLY AND ANNOYING!!!
-        await this.accountService.createAccount(user.id, txClient);
+             })
+           // Here you must pass the txClient in order to make sure
+           // both operations are running inside the same transaction 
+           // UGLY AND ANNOYING!!!
+            await this.accountService.createAccount(user.id, txClient);
+           }
+        );
     }
 }
 
@@ -68,10 +70,7 @@ The following propagations are supported:
 - `NEVER`: Execute non-transactionally, throw an exception if a transaction exists.
 
 ### Partial supported propagations through prisma restrictions
-The following propagations are working like expected, but will not make sure, that the M exactly like Java's propagations:
-- `NOT_SUPPORTED`: Execute non-transactionally, suspend the current transaction if one exists. The  
-
-The `NOT_SUPPORTED` propagation will work like expected, but have in mind, that prisma model operations like `prisma.create` and `prisma.createMany` will still begin and commit a transaction from its nature. It will not make any issues and affect the behaviour. If you really  
+- `NOT_SUPPORTED`: Execute non-transactionally, suspend the current transaction if one exists and will be executed in a non transactional context. This propagation will work like expected, but have in mind, that prisma model operations like `prisma.create` and `prisma.createMany` will still begin and commit a transaction from its nature. If you want to prevent creating a transaction completely use `prisma.$queryRaw`.  
 
 ### Not supported propagations
 These propagations are currently not supported
@@ -80,13 +79,60 @@ These propagations are currently not supported
 ### Prisma Raw query support
 All the propagations working with the prisma model methods will also work with the `prisma.$queryRaw` method. 
 
+## Solution for the example:
+For the scenario above the solution would be as follows:
+
+``` typescript
+import { Transactional } from "./transactional";
+class UserService {
+    constructor(
+        private prisma: IExtendedPrismaClient,
+        private accountService: AccountService
+    ) {}
+
+    // This propation will start a new transaction, otherwise it will append to the current one
+    @Transactional({propagation: "REQUIRED"})
+    public async createUserWithAccount(): Promise<void> {
+        const user = await prisma.user.create({
+          data: {
+            firstname: "John",
+            lastname: "Doe",
+            email: "John.Doe@gmail.com",
+          }
+        })
+        await this.accountService.createAccount(user.id);
+    }
+}
+
+class AccountService {
+    constructor(private prisma: IExtendedPrismaClient) {}
+    // this method will  append to the same transaction and use the same transaction client, 
+    // when called from `UserService.createUserWithAccount`. If account creation went wrong, the 
+    //created user will be rolled back, what we want
+    @Transactional({propagation: "REQUIRED"}) 
+    public async createAccount(userId: bigint): Promise<void> {
+        await prisma.account.create({
+            data: {
+                userId: userId,
+                accountNumber: "123-456"
+            },
+        });
+    }
+}
+
+const accountService = new AccountService(prisma);
+const userService = new UserService(prisma);
+await userService.createUserWithAccount(); // This will run in the same transaction
+```
+Note that this is much more cleaner than the approach before. This is just a simple example and yes, you can create a user with an account directly with one command inside the `prisma.user.create` method. But often you have much more complicated scenarios and want to create separate transaction inside an already existing transaction (`REQUIRES_NEW`) or you just want to comply with the single responsibility principle. Your methods are called from everywhere and you just want to handle transactions in a clean way without passing the txClient through the whole world. If your method is called by different other methods, you will not know which one of them is running inside transaction, which not. This extension will make your life easier handling them.
+
 ## How it is doing this
 This extension creates a proxy for all prisma models and the `prisma.$queryRaw` method. With nodeJs AsyncLocalStorage the current context will be picked 
 
 ## Not supported actions
-- Calling multiple different Prisma Clients in the same annotated method will not work at all yet
+- Calling methods from multiple different Prisma Clients in the same annotated method will not work at all yet. So if you have a `prismaClient1` and a `prismaClient2` and you call both inside the same `@Transactional` annoted method, it will not work
 - Make sure the end of the annotated method means, that all database operations are performed. Otherwise it can happen, that a transaction will be commited to early. So make sure you are awaiting until all database operations are performed
-- This extension only supports the default prisma model methods and the prisma `$executeRaw` methods. If you want to extend this behaviour with your own methods, check the code inside this repository, how the methods are proxied.
+- This extension only supports the default prisma model methods and the prisma `$executeRaw` methods. If you want to extend the transactional propagation behaviour with your own methods, check the code inside this repository, how the methods are proxied.
 
 
 ## Installation
@@ -122,13 +168,13 @@ export type IExtendedPrismaClient = ReturnType<typeof createPrismaTestClient>;
 const prisma: IExtendedPrismaClient = createPrismaTestClient();
 ```
 
-
-### Prerequisites
+# Developer guide for this extension
+## Prerequisites
 
 - Install [Node.js](https://nodejs.org/en/download/)
 - Install [Docker](https://docs.docker.com/get-docker/)
 
-### 1. Download example & install dependencies
+## 1. Download example & install dependencies
 
 Clone this repository:
 
@@ -142,8 +188,7 @@ install dependencies:
 npm install
 ```
 
-### 2. Start the database
-
+## 2. Start the database
 Run the following command to start a new Postgres database in a Docker container:
 
 ```sh
@@ -158,14 +203,11 @@ npx prisma migrate deploy
 ```
 
 ### 4. Run the `test` script
-
 To test the transactional behaviour, run the following command:
 
 ```sh
-npm run test
+npm run test:watch
 ```
-
-
 
 # Helpful links:
 - https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#params
