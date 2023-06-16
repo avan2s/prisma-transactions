@@ -244,7 +244,8 @@ npm run test:watch
 
 ## share and publish prisma client extensions
 - https://www.prisma.io/docs/concepts/components/prisma-client/client-extensions/shared-extensions#package-an-extension
-
+- https://github.com/debashish2014/local-package-publisher
+- https://medium.com/@debshish.pal/publish-a-npm-package-locally-for-testing-9a00015eb9fd
 
 
 <style>
