@@ -1,10 +1,10 @@
 # Prisma Transaction Propagation
-This prisma extension helps handling transactions through method annotations. It is based on the idea of [Java Spring Transactional Propagations](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/annotation/Propagation.html).
-
-With these annotation you get full control over the transaction inside you methods.
+This prisma extension helps handling transactions through method annotations. It is based on the idea of [Java Spring Transactional Propagations](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/annotation/Propagation.html). With these annotation you get full control over the transaction inside you methods.
 
 ## The problem in prisma transactions
-Prisma supports [interactive transactions](https://www.prisma.io/docs/concepts/components/prisma-client/transactions#interactive-transactions) and creates a transactional client. Every operation, which is part of this transaction must be performed with this prisma transactional client. This is fine, but often in a project you have the single responsibility principle where different services are performing different database operations. Lets take a user service and an account service as an example. Both services have their own responsibility. Assume that the user- and account creation should be performed in the same transaction. The logic creating the user and the account should also be peformed in different services. With interactive transactions you must pass the transactional client through all methods, in order to attach to the same transaction:
+Prisma supports [interactive transactions](https://www.prisma.io/docs/concepts/components/prisma-client/transactions#interactive-transactions) and creates a transactional client. Every operation, which is part of this transaction must be performed with this prisma transactional client. This is fine, but often in a project you have the single responsibility principle where different services are performing different database operations or you just want to have more control over prisma transactional behaviour. Assume the following example:
+
+Lets take a user service and an account service as an example. Both services have their own responsibility. Assume that the user- and account creation should be performed in the same transaction. The logic creating the user and the account should also be peformed in different services. With interactive transactions you must pass the transactional client through all methods, in order to attach to the same transaction:
 
 ```typescript
 // Example with interactive transactions:
