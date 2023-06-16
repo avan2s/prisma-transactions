@@ -1,5 +1,5 @@
 # Prisma Transaction Propagation
-This prisma extension helps handling transactions through method annotations. It is based on the idea of [Java Spring Transactional Propagations](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/annotation/Propagationj.html).
+This prisma extension helps handling transactions through method annotations. It is based on the idea of [Java Spring Transactional Propagations](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/annotation/Propagation.html).
 
 With these annotation you get full control over the transaction inside you methods.
 
@@ -127,7 +127,7 @@ await userService.createUserWithAccount(); // This will run in the same transact
 Note that this is much more cleaner than the approach before. This is just a simple example and yes, you can create a user with an account directly with one command inside the `prisma.user.create` method. But often you have much more complicated scenarios and want to create separate transaction inside an already existing transaction (`REQUIRES_NEW`) or you just want to comply with the single responsibility principle. Your methods are called from everywhere and you just want to handle transactions in a clean way without passing the txClient through the whole world. If your method is called by different other methods, you will not know which one of them is running inside transaction, which not. This extension will make your life easier handling them.
 
 ## How it is doing this
-This extension creates a proxy for all prisma models and the `prisma.$queryRaw` method. With nodeJs AsyncLocalStorage the current context will be picked 
+This extension creates a proxy for all prisma models and the `prisma.$queryRaw` method. With nodeJs AsyncLocalStorage the current context will be picked. It is also thread safe because the `AsyncLocalStorage` from nodeJs will make sure that the TransactionContext with your propagation is hold in an own thread local variable. For more information see my `async-local-storage-learning.spec.ts` or the [nodejs documentation](https://nodejs.org/api/async_context.html#asynclocalstoragerunstore-callback-args) 
 
 ## Not supported actions
 - Calling methods from multiple different Prisma Clients in the same annotated method will not work at all yet. So if you have a `prismaClient1` and a `prismaClient2` and you call both inside the same `@Transactional` annoted method, it will not work
@@ -247,156 +247,13 @@ npm run test:watch
 
 
 
-```
-
-
-
-
-: I.e you want to create a user and a account in a single transaction you would use interactive transactions in the folowing way:
-
-```
-import { PrismaClient } from '@prisma/client'
-const prisma = new PrismaClient()
-
-async function transfer(from: string, to: string, amount: number) {
-  return await prisma.$transaction(async (tx) => {
-    // 1. Decrement amount from the sender.
-    const sender = await tx.account.update({
-      data: {
-        balance: {
-          decrement: amount,
-        },
-      },
-      where: {
-        email: from,
-      },
-    })
-
-    // 2. Verify that the sender's balance didn't go below zero.
-    if (sender.balance < 0) {
-      throw new Error(`${from} doesn't have enough to send ${amount}`)
-    }
-
-    // 3. Increment the recipient's balance by amount
-    const recipient = await tx.account.update({
-      data: {
-        balance: {
-          increment: amount,
-        },
-      },
-      where: {
-        email: to,
-      },
-    })
-
-    return recipient
-  })
+<style>
+.warning {
+  color: #f39c12;
+  background-color: #fef8e7;
+  border: 1px solid #f1c40f;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
 }
-
-async function main() {
-  // This transfer is successful
-  await transfer('alice@prisma.io', 'bob@prisma.io', 100)
-  // This transfer fails because Alice doesn't have enough funds in her account
-  await transfer('alice@prisma.io', 'bob@prisma.io', 100)
-}
-
-main()
-  .then(async () => {
-    await prisma.$disconnect()
-  })
-  .catch(async (e) => {
-    console.error(e)
-    await prisma.$disconnect()
-    process.exit(1)
-  })
-```
-
-Die Kontrolle darüber:
-- Soll eine 
-
-
-https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/annotation/Propagation.html
-
-## How to use
-
-### Prerequisites
-
-- Install [Node.js](https://nodejs.org/en/download/)
-- Install [Docker](https://docs.docker.com/get-docker/)
-
-### 1. Download example & install dependencies
-
-Clone this repository:
-
-```sh
-git clone git@github.com:avan2s/prisma-transactions.git
-```
-
-install dependencies:
-
-```sh
-npm install
-```
-
-### 2. Start the database
-
-Run the following command to start a new Postgres database in a Docker container:
-
-```sh
-docker compose up -d
-```
-
-### 3. Run migrations
-Run this command to apply migrations to the database:
-
-```sh
-npx prisma migrate deploy
-```
-
-### 4. Run the `test` script
-
-To test the transactional behaviour, run the following command:
-
-```sh
-npm run test
-```
-
-
-
-# Helpful links:
-- https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#params
-- https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#create-multiple-new-records
-- https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#use
-- https://github.com/prisma/prisma/discussions/17928
-## How to receive transaction id
-- https://github.com/prisma/prisma/discussions/17959
-- https://github.com/prisma/prisma/discussions/17788
-- https://github.com/prisma/prisma/discussions/12373#discussioncomment-3909212
-- https://github.com/prisma/prisma/issues/15212
-- https://github.com/prisma/prisma/issues/15212
-
-## Transaction inside transaction
-- https://github.com/prisma/prisma/issues/9083
-- https://github.com/prisma/prisma/discussions/10619
-- https://github.com/prisma/prisma/discussions/12373
-
-## TypeOrmSolution wit unit testing:
-- https://github.com/odavid/typeorm-transactional-cls-hooked
-
-
-## Prisma client type
-- https://github.com/prisma/prisma/discussions/18032
-
-## prisma model and function types
-- https://github.com/prisma/prisma/discussions/18216
-- https://www.prisma.io/docs/concepts/components/prisma-client/advanced-type-safety/operating-against-partial-structures-of-model-types#problem-using-variations-of-the-generated-model-type
-- https://www.prisma.io/docs/concepts/components/prisma-client/advanced-type-safety/prisma-validator#combining-prismavalidator-with-form-input
-- https://www.prisma.io/docs/concepts/components/prisma-client/advanced-type-safety/operating-against-partial-structures-of-model-types#problem-getting-access-to-the-return-type-of-a-function
-- https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy
-- https://stackoverflow.com/questions/24143973/npm-adduser-via-bash
-- https://verdaccio.org/docs/best/
-
-## share and publish prisma client extensions
-- https://www.prisma.io/docs/concepts/components/prisma-client/client-extensions/shared-extensions#package-an-extension
-
-
+</style>
