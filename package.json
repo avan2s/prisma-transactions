@@ -6,6 +6,7 @@
   "publishConfig": {
     "registry": "http://localhost:4873"
   },
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
     "test:watch": "jest -i --verbose --config jest-unit.json --watch",
@@ -27,7 +28,7 @@
   },
   "keywords": [],
   "author": "Andreas v.H.",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@faker-js/faker": "^7.6.0",
     "@types/jest": "^29.4.0",
