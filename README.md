@@ -127,7 +127,7 @@ await userService.createUserWithAccount(); // This will run in the same transact
 Note that this is much more cleaner than the approach before. This is just a simple example and yes, you can create a user with an account directly with one command inside the `prisma.user.create` method. But often you have much more complicated scenarios and want to create separate transaction inside an already existing transaction (`REQUIRES_NEW`) or you just want to comply with the single responsibility principle. Your methods are called from everywhere and you just want to handle transactions in a clean way without passing the txClient through the whole world. If your method is called by different other methods, you will not know which one of them is running inside transaction, which not. This extension will make your life easier handling them.
 
 ## How it is doing this
-This extension creates a proxy for all prisma models and the `prisma.$queryRaw` method. With nodeJs AsyncLocalStorage the current context will be picked. It is also thread safe because the `AsyncLocalStorage` from nodeJs will make sure that the TransactionContext with your propagation is hold in an own thread local variable. For more information see my `async-local-storage-learning.spec.ts` or the [nodejs documentation](https://nodejs.org/api/async_context.html#asynclocalstoragerunstore-callback-args) 
+This extension creates a proxy for all prisma models and the `prisma.$queryRaw` method. With nodeJs AsyncLocalStorage the current transaction propagation context is created and can be picked inside the nested methods. Depending on the propagation level the proxied client methods will decide, if a default prisma client, an existing txClient or a new txClient has to be created. It is also thread safe because the `AsyncLocalStorage` from nodeJs will make sure that the TransactionContext with your propagation is hold in an own thread local variable. For more information see my `async-local-storage-learning.spec.ts` or the [nodejs documentation](https://nodejs.org/api/async_context.html#asynclocalstoragerunstore-callback-args) 
 
 ## Not supported actions
 - Calling methods from multiple different Prisma Clients in the same annotated method will not work at all yet. So if you have a `prismaClient1` and a `prismaClient2` and you call both inside the same `@Transactional` annoted method, it will not work
@@ -142,6 +142,13 @@ This extension creates a proxy for all prisma models and the `prisma.$queryRaw` 
 npm i prisma-extension-transactional-propagation
 ```
 ### Extend the prisma client
+First make sure you enabled prisma extensions in the `prisma.schema`:
+``` typescript
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["clientExtensions"]
+}
+```
 This extension consists of two extensions. They must be installed at last in order to make the proxy methods working correctly.
 
 
