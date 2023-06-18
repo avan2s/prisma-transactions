@@ -6,7 +6,8 @@
   "publishConfig": {
     "registry": "http://localhost:4873"
   },
-  "files": ["dist"],
+  "files": ["dist/**/*"],
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test:watch": "jest -i --verbose --config jest-unit.json --watch",
@@ -21,8 +22,8 @@
     "lint": "eslint 'src/**/*.{ts,tsx}' --fix",
     "lint:test": "eslint 'src/**/*.{ts,tsx}'",
     "db:log": "docker compose logs -f | grep -E 'SELECT|COMMIT|BEGIN|INSERT|DELETE|ROLLBACK'",
-    "publish:local": "docker compose up -d npm-registry && npm run unpublish:local && npm publish --registry http://localhost:4873",
-    "unpublish:local": "npm unpublish -f --registry http://localhost:4873",
+    "publish:local": "docker compose up -d npm-registry && npm publish --registry http://localhost:4873",
+    "unpublish:local": "docker compose up -d npm-registry && npm unpublish -f --registry http://localhost:4873",
     "prepublish:local": "npm run npm-registry:local:add-token",
     "npm-registry:local:add-token": "grep -q -E '^@local:registry' ~/.npmrc || echo '\n@local:registry=http://localhost:4873/\n//localhost:4873/:_authToken=\"TEST\"' >> ~/.npmrc"
   },
