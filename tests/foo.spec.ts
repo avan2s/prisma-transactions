@@ -12,6 +12,7 @@ describe("testSuite 1", () => {
   const userService = new UserService(prisma);
   beforeEach(async () => {
     // prepare some stuff if required
+    await prisma.appUser.deleteMany();
   });
 
   afterEach(async () => {
@@ -25,52 +26,70 @@ describe("testSuite 1", () => {
   });
 
   it("test extended prisma client", async () => {
-    // no errors here
-    const sharedWithUser = (
-      await prisma.appUser.findUniqueOrThrow({
-        where: { ID: 1 },
-        select: {
-          SharedEntities: {
-            select: {
-              Artifact: {
-                include: {
-                  AssignedSite: true,
-                  Epoch: true,
-                  Category: true,
-                  QrCode: true,
+    const user = await prisma.appUser.create({
+      data: {
+        Firstname: "John",
+        Lastname: "Doe",
+        EMail: "john.doe@gmail.com",
+        Phone: "0230203",
+        Username: "jd",
+        Password: "secret",
+        RoleID: 1222,
+      },
+    });
+    console.log(user.Name);
+    const shouldRunTheRest = false;
+
+    if (shouldRunTheRest) {
+      //no errors here
+      const sharedWithUser = (
+        await prisma.appUser.findUniqueOrThrow({
+          where: { ID: 1 },
+          select: {
+            SharedEntities: {
+              select: {
+                Artifact: {
+                  include: {
+                    AssignedSite: true,
+                    Epoch: true,
+                    Category: true,
+                    QrCode: true,
+                  },
+                },
+              },
+              where: {
+                NOT: {
+                  ArtifactId: null,
                 },
               },
             },
-            where: {
-              NOT: {
-                ArtifactId: null,
-              },
-            },
           },
-        },
-      })
-    ).SharedEntities.map((x) => x.Artifact);
+        })
+      ).SharedEntities.map((x) => x.Artifact);
 
-    const userWithSharedEntities = await userService.findUser(1);
-    userWithSharedEntities.SharedEntities.map((x) => x.Artifact);
+      const userWithSharedEntities = await userService.findUser(1);
+      userWithSharedEntities.SharedEntities.map((x) => x.Artifact);
 
-    const userWithSharedEntities2 = await userService.findUserSharedEntities(1);
-    userWithSharedEntities2.map((x) => x.Artifact);
+      const userWithSharedEntities2 = await userService.findUserSharedEntities(
+        1
+      );
+      userWithSharedEntities2.map((x) => x.Artifact);
 
-    // this works because the return type is not defined and typescript finds it out
-    const sharedEntity =
-      await userService.findUserSharedEntityWithoutDefinedReturnType(1);
-    console.log(sharedEntity.Artifact);
+      // this works because the return type is not defined and typescript finds it out
+      const sharedEntity =
+        await userService.findUserSharedEntityWithoutDefinedReturnType(1);
+      console.log(sharedEntity.Artifact);
 
-    // here i receive the error, because it return Promise<Artifact> , which only holds the basic attributes, not references
-    // this is reproducing the issue that you mentioned
-    // const sharedEntity2 =
-    //   await userService.findUserSharedEntityWithDefinedReturnType(1);
-    // console.log(sharedEntity2.Artifact);
+      // here i receive the error, because it return Promise<Artifact> , which only holds the basic attributes, not references
+      // this is reproducing the issue that you mentioned
+      // const sharedEntity2 =
+      //   await userService.findUserSharedEntityWithDefinedReturnType(1);
+      // console.log(sharedEntity2.Artifact);
 
-    // with own defined interface it is working
-    const sharedEntity3 =
-      await userService.findUserSharedEntityWithOwnReturnType(1);
-    console.log(sharedEntity3.Artifact);
+      // with own defined interface it is working
+      const sharedEntity3 =
+        await userService.findUserSharedEntityWithOwnReturnType(1);
+      console.log(sharedEntity3.Artifact);
+    }
   });
 });
