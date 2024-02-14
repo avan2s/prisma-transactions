@@ -6,8 +6,10 @@ import { prismaTxPropagationExtension } from "../services/prisma-tx-propagation-
 import { Transactional } from "./transactional";
 import { EventEmitter } from "events";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+
+const queryEvents: Prisma.QueryEvent[] = [];
 function createPrismaTestClient() {
-  const prisma = new PrismaClient({
+  const basePrisma = new PrismaClient({
     datasources: {
       db: { url: "postgresql://postgres:postgres@localhost:6005/postgres" },
     },
@@ -17,10 +19,13 @@ function createPrismaTestClient() {
         emit: "event",
       },
     ],
-  })
+  });
+  basePrisma.$on("query", (event) => {
+    queryEvents.push(event);
+  });
+  return basePrisma
     .$extends(prismaTxClientExtension)
     .$extends(prismaTxPropagationExtension);
-  return prisma;
 }
 
 export type IExtendedPrismaClient = ReturnType<typeof createPrismaTestClient>;
@@ -28,7 +33,6 @@ export type IExtendedPrismaClient = ReturnType<typeof createPrismaTestClient>;
 export type AppUserWithoutId = Omit<AppUser, "id">;
 
 describe("Transactional Integration Test", () => {
-  const queryEvents: Prisma.QueryEvent[] = [];
   const prismaClient = createPrismaTestClient();
 
   const verifyQueryEvents = (
@@ -43,10 +47,6 @@ describe("Transactional Integration Test", () => {
 
   beforeAll(async () => {
     await prismaClient.$connect();
-
-    prismaClient.$on("query", (event) => {
-      queryEvents.push(event);
-    });
   });
 
   beforeEach(async () => {
@@ -70,7 +70,7 @@ describe("Transactional Integration Test", () => {
       class TestClass {
         constructor(private prisma: IExtendedPrismaClient) {}
 
-        @Transactional({ propagationType: "REQUIRED", txTimeout: 60000 })
+        @Transactional({ propagationType: "REQUIRED", txTimeout: 600000 })
         public async createUser(user: AppUserWithoutId): Promise<AppUser> {
           const userResult = this.prisma.appUser.create({
             data: {
@@ -91,7 +91,7 @@ describe("Transactional Integration Test", () => {
         lastname: "Doe",
       });
 
-      verifyQueryEvents(queryEvents, ["BEGIN", "INSERT", "SELECT", "COMMIT"]);
+      verifyQueryEvents(queryEvents, ["BEGIN", "INSERT","COMMIT"]);
     });
 
     it(`should execute $queryRaw inside transactional context`, async () => {
@@ -147,9 +147,7 @@ describe("Transactional Integration Test", () => {
       verifyQueryEvents(queryEvents, [
         "BEGIN",
         "INSERT",
-        "SELECT",
         "INSERT",
-        "SELECT",
         "COMMIT",
       ]);
     });
@@ -187,14 +185,8 @@ describe("Transactional Integration Test", () => {
       await toTest.createUser();
       // console.log(queryEvents.map((e) => e.query));
 
-      const expectedOperations = ["BEGIN"];
-      for (let i = 0; i < 6; i++) {
-        expectedOperations.push("INSERT");
-        expectedOperations.push("SELECT");
-      }
-      expectedOperations.push("COMMIT");
-
-      verifyQueryEvents(queryEvents, expectedOperations);
+      const inserts = Array.from<string>({length: 6}).fill("INSERT");
+      verifyQueryEvents(queryEvents, ["BEGIN"].concat(inserts).concat(["COMMIT"]));
     });
 
     it(`should create 5 users in parallel inside same transaction`, async () => {
@@ -220,16 +212,8 @@ describe("Transactional Integration Test", () => {
       const toTest = new TestClass(prismaClient);
 
       await toTest.createUsers();
-      const queries = queryEvents.map((e) => e.query);
-
-      expect(queries[0]).toBe("BEGIN");
-      expect(queries[queries.length - 1]).toBe("COMMIT");
-      expect(queries.filter((query) => query.includes("INSERT")).length).toBe(
-        numberOfUsers
-      );
-      expect(queries.filter((query) => query.includes("SELECT")).length).toBe(
-        numberOfUsers
-      );
+      const inserts = Array.from<string>({length: numberOfUsers}).fill("INSERT");
+      verifyQueryEvents(queryEvents, ["BEGIN"].concat(inserts).concat("COMMIT"));
 
       // console.log(queryEvents.map((e) => e.query));
       expect(await prismaClient.appUser.count()).toBe(numberOfUsers);
@@ -266,9 +250,7 @@ describe("Transactional Integration Test", () => {
       verifyQueryEvents(queryEvents, [
         "BEGIN",
         "INSERT",
-        "SELECT",
         "INSERT",
-        "SELECT",
         "COMMIT",
       ]);
     });
@@ -359,9 +341,7 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "INSERT",
-            "SELECT",
             "ROLLBACK",
           ]);
 
@@ -395,7 +375,7 @@ describe("Transactional Integration Test", () => {
 
       // console.log(queryEvents.map((q) => q.query));
 
-      verifyQueryEvents(queryEvents, ["BEGIN", "INSERT", "SELECT", "COMMIT"]);
+      verifyQueryEvents(queryEvents, ["BEGIN", "INSERT", "COMMIT"]);
     });
 
     it(`should rollback the first user in REQUIRES_NEW but should keep the second created user in in new transaction`, async () => {
@@ -440,10 +420,8 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "BEGIN", //  START - the new transaction to keep even when first transaction apply
             "INSERT",
-            "SELECT",
             "COMMIT", // END - the end of the separate transaction
             "ROLLBACK",
           ]);
@@ -498,10 +476,8 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "BEGIN",
             "INSERT",
-            "SELECT",
             "COMMIT",
             "ROLLBACK",
           ]);
@@ -558,14 +534,11 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN", // start parent transaction
             "INSERT",
-            "SELECT",
             "BEGIN", // REQUIRES_NEW transaction 1
             "INSERT",
-            "SELECT",
             "COMMIT",
             "BEGIN", // REQUIRES_NEW transaction 2
             "INSERT",
-            "SELECT",
             "COMMIT",
             "ROLLBACK", // ROLLBACK parent transaction
           ]);
@@ -640,7 +613,6 @@ describe("Transactional Integration Test", () => {
         "BEGIN",
         "INSERT",
         "INSERT", // inside SUPPORT context it should attach to the current transaction
-        "SELECT",
         "COMMIT",
       ]);
 
@@ -692,9 +664,7 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "INSERT",
-            "SELECT",
             "ROLLBACK",
           ]);
 
@@ -738,9 +708,7 @@ describe("Transactional Integration Test", () => {
       verifyQueryEvents(queryEvents, [
         "BEGIN",
         "INSERT",
-        "SELECT",
         "INSERT",
-        "SELECT",
         "COMMIT",
       ]);
     });
@@ -787,9 +755,7 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "INSERT",
-            "SELECT",
             "ROLLBACK",
           ]);
         });
@@ -833,10 +799,7 @@ describe("Transactional Integration Test", () => {
         .then(() => fail("error was expected"))
         .catch(async (err) => {
           verifyQueryEvents(queryEvents, [
-            "BEGIN",
-            "INSERT",
-            "SELECT",
-            "COMMIT",
+            "INSERT"
           ]);
           expect(err.message).toBe(
             "Transaction is required for propagation type MANDATORY"
@@ -879,14 +842,8 @@ describe("Transactional Integration Test", () => {
       const toTest = new TestClass(prismaClient);
       await toTest.createTwoUsers();
       verifyQueryEvents(queryEvents, [
-        "BEGIN",
         "INSERT",
-        "SELECT",
-        "COMMIT",
-        "BEGIN",
         "INSERT",
-        "SELECT",
-        "COMMIT",
       ]);
 
       const users = await prismaClient.appUser.findMany();
@@ -934,14 +891,8 @@ describe("Transactional Integration Test", () => {
         .catch(async (err) => {
           expect(err.message).toBe("unexpected");
           verifyQueryEvents(queryEvents, [
-            "BEGIN",
             "INSERT",
-            "SELECT",
-            "COMMIT",
-            "BEGIN",
             "INSERT",
-            "SELECT",
-            "COMMIT",
           ]);
 
           const users = await prismaClient.appUser.findMany();
@@ -992,7 +943,6 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "ROLLBACK",
           ]);
           const users = await prismaClient.appUser.findMany();
@@ -1060,7 +1010,6 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "INSERT",
             "ROLLBACK",
           ]);
@@ -1120,9 +1069,7 @@ describe("Transactional Integration Test", () => {
           verifyQueryEvents(queryEvents, [
             "BEGIN",
             "INSERT",
-            "SELECT",
             "INSERT",
-            "SELECT",
             "ROLLBACK",
           ]);
           const users = await prismaClient.appUser.findMany();

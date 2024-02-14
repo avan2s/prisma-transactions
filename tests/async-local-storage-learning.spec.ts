@@ -24,25 +24,26 @@ describe("async local storage - learning tests", () => {
   });
 
   it("example usage AsyncLocalStorage non primitive type", async () => {
-    interface Foo {
+    interface CustomTransactionContext {
       name: string;
-      age: number;
       propagationType: TransactionPropagation;
     }
 
-    const asyncLocalStorage = new AsyncLocalStorage<Foo>();
-    const runDatabaseTransaction = async (context: Foo) => {
+    const asyncLocalStorage = new AsyncLocalStorage<CustomTransactionContext>();
+    const runDatabaseTransaction = async (context: CustomTransactionContext) => {
       // Set the current context using the AsyncLocalStorage instance
       asyncLocalStorage.run(
-        { age: 12, name: "foo", propagationType: "REQUIRED" },
+        context,
         async () => {
           // Simulate a database operation
-          // console.log(asyncLocalStorage.getStore());
+          const store1 = asyncLocalStorage.getStore();
+          expect(store1?.name).toBe('context1');
           const nestedContext = Object.assign(context, {
             name: context.name + "nested",
           });
           asyncLocalStorage.run(nestedContext, async () => {
-            // console.log(asyncLocalStorage.getStore());
+            const storeNested = asyncLocalStorage.getStore();
+            expect(storeNested?.name).toBe("context1nested")
           });
           // console.log(asyncLocalStorage.getStore());
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -52,7 +53,6 @@ describe("async local storage - learning tests", () => {
     // // Call the function with two different contexts
     await runDatabaseTransaction({
       name: "context1",
-      age: 10,
       propagationType: "REQUIRED",
     });
     // runDatabaseTransaction("context2");
@@ -76,16 +76,16 @@ describe("async local storage - learning tests", () => {
       asyncLocalStorage.run(context, async () => {
         // console.log(`Running database transaction with context: ${context}`);
         // Simulate a database operation
-        console.log(context);
+        expect(context).toBe("context1")
         const nestedContext = context + "-nested";
         try {
           asyncLocalStorage
             .run(nestedContext, async () => {
-              console.log(asyncLocalStorage.getStore());
+              expect(asyncLocalStorage.getStore()).toBe("context1-nested");
               throw new Error("some error");
             })
             .catch(() => {
-              console.log(context);
+              expect(context).toBe("context1");
             });
         } catch (err) {
           console.log(context);
