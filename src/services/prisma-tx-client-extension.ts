@@ -36,13 +36,13 @@ export default Prisma.defineExtension({
       ) {
         const tx = prisma
           .$transaction(
-            (txClient: Prisma.TransactionClient) => {
+            (txClient) => {
               const txId = ("client_" +
                 TransactionContextStore.getInstance().getTransactionContext()
                   ?.txId) as string;
               (txClient as FlatTransactionClient).txId = txId;
               // console.log("txClient created " + txId);
-              setTxClient(txClient);
+              setTxClient(txClient as Prisma.TransactionClient);
               return txPromise;
             },
             { timeout: txOptions?.txTimeout }
