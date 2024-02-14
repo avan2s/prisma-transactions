@@ -60,13 +60,11 @@ describe("prisma learning tests", () => {
         expect(err.message).toBe(expectedError.message);
       });
 
-    expect(queryEvents.length).toBe(6);
+    expect(queryEvents.length).toBe(4);
     expect(queryEvents[0].query).toBe("BEGIN");
     expect(queryEvents[1].query).toContain("INSERT");
-    expect(queryEvents[2].query).toContain("SELECT");
-    expect(queryEvents[3].query).toContain("INSERT");
-    expect(queryEvents[4].query).toContain("SELECT");
-    expect(queryEvents[5].query).toBe("ROLLBACK");
+    expect(queryEvents[2].query).toContain("INSERT");
+    expect(queryEvents[3].query).toBe("ROLLBACK");
     const user = await prismaClient.appUser.findFirst();
 
     expect(user).toBeNull();
