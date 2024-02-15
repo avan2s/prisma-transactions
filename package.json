@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsc",
     "test:watch": "jest -i --verbose --config jest-unit.json --watch",
+    "test:watch2": "node --inspect-brk ./node_modules/.bin/jest -i --verbose --config jest-unit.json --watch",
     "test": "jest -i --verbose --config jest-unit.json",
     "pretest": "npm run db:start",
     "pretest:watch": "npm run db:start",
