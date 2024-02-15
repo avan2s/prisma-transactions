@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Prisma } from "@prisma/client";
 import { FlatTransactionClient } from "./prisma-tx-client-extension";
 import { TransactionContextStore } from "./transaction-context-store";

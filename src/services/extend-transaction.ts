@@ -4,6 +4,7 @@ export const extendTransaction = (tx: Prisma.TransactionClient) => {
   return new Proxy(tx, {
     get(target, prop) {
       if (prop === "$transaction") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return async (func: any) => {
           return func(tx);
         };
